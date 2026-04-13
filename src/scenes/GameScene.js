@@ -69,13 +69,21 @@ class GameScene extends Phaser.Scene {
         this.enemyGroup = this.physics.add.group();
         this._spawnEnemiesFromDungeon();
 
-        // 8. Système audio (avant SpellSystem pour capter 'spell:cast')
+        // 8. Collisions murs (joueur, ennemis → bloqués par les murs)
+        const wallGroup = this.dungeonRenderer.getWallGroup();
+        this.physics.add.collider(this.player.sprite, wallGroup);
+        this.physics.add.collider(this.enemyGroup,    wallGroup);
+
+        // Cooldown dégâts de contact ennemi (frames)
+        this._contactCooldown = 0;
+
+        // 9. Système audio (avant SpellSystem pour capter 'spell:cast')
         this.audio = new AudioSystem(this);
 
-        // 9. Système de sorts
+        // 10. Système de sorts
         this.spellSystem = new SpellSystem(this, this.player.sprite);
 
-        // 10. Collision : projectiles ↔ ennemis
+        // 11. Collision : projectiles ↔ ennemis
         this.physics.add.overlap(
             this.spellSystem.physicsGroup,
             this.enemyGroup,
@@ -84,18 +92,34 @@ class GameScene extends Phaser.Scene {
             this,
         );
 
-        // 11. Zones narratives (hooks TBATE : boss, exit, story…)
+        // 11b. Projectiles détruits au contact d'un mur
+        this.physics.add.collider(
+            this.spellSystem.physicsGroup,
+            wallGroup,
+            (projSprite) => { projSprite.projRef?.destroy(); },
+        );
+
+        // 11c. Dégâts de contact ennemi → joueur (avec cooldown)
+        this.physics.add.overlap(
+            this.player.sprite,
+            this.enemyGroup,
+            this._onEnemyContactPlayer,
+            null,
+            this,
+        );
+
+        // 13. Zones narratives (hooks TBATE : boss, exit, story…)
         this._setupTriggerZones();
 
-        // 12. Contrôles mobiles (exposé sur la scène pour que Player y accède)
+        // 14. Contrôles mobiles (exposé sur la scène pour que Player y accède)
         this.mobileControls = new MobileControls(this);
 
-        // 13. UI
+        // 15. UI
         this.hud        = new HUD(this, this.stats);
         this.spellBar   = new SpellBar(this, this.spellSystem);
         this.statsPanel = new StatsPanel(this, this.stats);
 
-        // 14. XP à la mort d'un ennemi
+        // 16. XP à la mort d'un ennemi
         this.events.on('enemy:died', ({ xpDrop }) => {
             this.player.mana.gainExperience(xpDrop);
             this.stats.gainPlayerXP(xpDrop * 2);
@@ -106,6 +130,8 @@ class GameScene extends Phaser.Scene {
     }
 
     update(time) {
+        if (this._contactCooldown > 0) this._contactCooldown--;
+
         this.player.update(time);
         this.spellSystem.update();
         this.spellBar.update();
@@ -172,6 +198,30 @@ class GameScene extends Phaser.Scene {
     }
 
     // ----------------------------------------------------------------
+    // Dégâts de contact ennemi → joueur
+    // ----------------------------------------------------------------
+
+    /**
+     * Appelé quand un ennemi touche le joueur.
+     * Cooldown de 90 frames (~1.5 s) pour éviter les rafales de dégâts.
+     */
+    _onEnemyContactPlayer(playerSprite, enemySprite) {
+        const enemy = enemySprite.enemyRef;
+        if (!enemy?.alive || this._contactCooldown > 0) return;
+
+        this._contactCooldown = 90;
+        const dmg = 8;
+        this.stats.currentHP = Math.max(0, this.stats.currentHP - dmg);
+        this.events.emit('stats:changed');
+
+        // Flash rouge sur le joueur
+        this.player.sprite.setTint(0xff2222);
+        this.time.delayedCall(180, () => {
+            if (this.player.sprite?.active) this.player.sprite.clearTint();
+        });
+    }
+
+    // ----------------------------------------------------------------
     // Combat
     // ----------------------------------------------------------------
 
@@ -221,14 +271,17 @@ class GameScene extends Phaser.Scene {
     // ----------------------------------------------------------------
 
     _setupCamera() {
-        this.cameras.main
-            .setBounds(
+        const cam = this.cameras.main;
+        cam.setBounds(
                 0, 0,
                 this.dungeonRenderer.mapPixelWidth,
                 this.dungeonRenderer.mapPixelHeight,
             )
-            .startFollow(this.player.sprite, true, 0.1, 0.1)
+            .startFollow(this.player.sprite, true, 1, 1) // lerp=1 → centrage immédiat
             .setZoom(1.5)
             .setBackgroundColor('#000000');
+
+        // Passer en suivi fluide après le 1er frame rendu
+        this.time.delayedCall(16, () => cam.setLerp(0.10, 0.10));
     }
 }

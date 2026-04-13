@@ -85,7 +85,7 @@ class MobileControls {
     _buildButtons(W, H) {
         // ⚡ Cast — grand bouton bas droite
         this._castBtn = this._makeButton(
-            W - 80, H - 100, 52, 0x5533aa, '⚡',
+            W - 80, H - 100, 52, 0x5533bb, '⚡',
             (ptr) => {
                 if (ptr.id === this._joyPointerId) return;
                 this.scene.events.emit('mobile:cast');
@@ -94,16 +94,16 @@ class MobileControls {
 
         // ↻ Sort suivant
         this._makeButton(
-            W - 162, H - 58, 32, 0x1a2a44, '↻',
+            W - 162, H - 58, 32, 0x1a3a66, '↻',
             (ptr) => {
                 if (ptr.id === this._joyPointerId) return;
                 this.scene.events.emit('mobile:nextspell');
             },
         );
 
-        // ≡ Menu / Stats (haut droite)
+        // ≡ Menu / Stats (haut droite) — fond plus visible
         this._makeButton(
-            W - 44, 44, 26, 0x111122, '≡',
+            W - 44, 44, 28, 0x2a1a55, '≡',
             (ptr) => {
                 if (ptr.id === this._joyPointerId) return;
                 this.scene.events.emit('mobile:menu');

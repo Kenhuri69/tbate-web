@@ -20,14 +20,15 @@ const AUDIO_CONFIG = {
     ambient: 0.10,
 
     // ── Sorts : couleur sonore par spell.id ───────────────────────
+    // Clés = spell.id exact défini dans spells.js
     // waveform : 'sine' | 'triangle' | 'sawtooth' | 'square'
     // attack   : secondes
     // decay    : secondes (durée totale après l'attaque)
     spells: {
-        spell_0: { baseFreq: 523, waveform: 'sine',     filterFreq: 2400, attack: 0.010, decay: 0.16, gain: 0.32 }, // Mana Bolt — cristallin
-        spell_1: { baseFreq: 185, waveform: 'sawtooth', filterFreq:  700, attack: 0.018, decay: 0.22, gain: 0.28 }, // Shadow Bolt — grave tranchant
-        spell_2: { baseFreq: 880, waveform: 'square',   filterFreq: 1800, attack: 0.006, decay: 0.12, gain: 0.24 }, // Frost Shard — sifflant froid
-        spell_3: { baseFreq:  98, waveform: 'triangle', filterFreq:  380, attack: 0.030, decay: 0.34, gain: 0.40 }, // Void Eruption — profond sourd
+        mana_blast:  { baseFreq: 523, waveform: 'sine',     filterFreq: 2400, attack: 0.010, decay: 0.16, gain: 0.32 }, // cristallin
+        fireball:    { baseFreq: 185, waveform: 'sawtooth', filterFreq:  700, attack: 0.018, decay: 0.24, gain: 0.30 }, // grave tranchant
+        frost_lance: { baseFreq: 880, waveform: 'square',   filterFreq: 1800, attack: 0.006, decay: 0.12, gain: 0.24 }, // sifflant froid
+        lightning:   { baseFreq:  98, waveform: 'triangle', filterFreq:  380, attack: 0.030, decay: 0.34, gain: 0.40 }, // profond sourd
     },
 
     // ── Musique procédurale ───────────────────────────────────────
