@@ -69,6 +69,11 @@ class AudioSystem {
         // AudioContext créé au 1er pointeur (règle autoplay des navigateurs)
         scene.input.once('pointerdown', () => this._initContext());
 
+        // Reprendre si le navigateur suspend l'AudioContext entre les interactions
+        scene.input.on('pointerdown', () => {
+            if (this._ctx?.state === 'suspended') this._ctx.resume();
+        });
+
         // Raccourci clavier mute
         scene.input.keyboard?.on('keydown-M', () => this.toggleMute());
     }
@@ -273,6 +278,10 @@ class AudioSystem {
         if (this._ctx) return;
 
         this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Certains navigateurs créent le contexte en état "suspended" même après
+        // un geste utilisateur → forcer la reprise immédiatement
+        if (this._ctx.state === 'suspended') this._ctx.resume();
 
         // Master gain
         this._master = this._ctx.createGain();

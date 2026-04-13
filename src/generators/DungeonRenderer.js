@@ -14,6 +14,7 @@
  *   renderer.render()            → construit les objets Phaser
  *   renderer.getEnemySpawns()    → [{x,y,roomType,count}]
  *   renderer.getTriggerZones()   → Phaser.Zone[] avec .hookId et .roomId
+ *   renderer.getWallGroup()      → Phaser.Physics.Arcade.StaticGroup (murs physiques)
  *   renderer.mapPixelWidth       → pour la caméra / physics.world.setBounds
  *   renderer.mapPixelHeight
  *
@@ -22,7 +23,6 @@
  *
  * TODO : minimap — générer une RenderTexture basse résolution.
  * TODO : FOG OF WAR — masquer les salles non visitées.
- * TODO : Tilemap Phaser natif pour la collision tile par tile.
  *
  * Dépend de (globals) : TILE, ROOM_TYPES, DUNGEON_CONFIG
  */
@@ -43,6 +43,7 @@ class DungeonRenderer {
 
         this._triggerZones  = [];   // zones physiques narratives
         this._spawnPoints   = [];   // positions de spawn ennemis
+        this._wallGroup     = null; // StaticGroup pour les collisions murs
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -57,6 +58,7 @@ class DungeonRenderer {
         this._renderTiles();
         this._renderRoomOverlays();
         this._renderMarkers();
+        this._buildWallBodies();
         this._buildTriggerZones();
         this._buildSpawnPoints();
         if (this.debug) this._renderDebugLabels();
@@ -324,6 +326,46 @@ class DungeonRenderer {
     }
 
     // ──────────────────────────────────────────────────────────────
+    // Corps physiques des murs (collisions joueur / ennemis / projectiles)
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Crée un StaticGroup Arcade avec un corps par tuile WALL.
+     * Fusionne les tuiles consécutives sur chaque ligne en un seul rectangle
+     * pour réduire le nombre de corps physiques (~80 % moins que tile par tile).
+     *
+     * Les sprites sont invisibles : le RenderTexture gère déjà le visuel.
+     */
+    _buildWallBodies() {
+        const { tiles, width: W, height: H, tileSize: TS } = this.map;
+        this._wallGroup = this.scene.physics.add.staticGroup();
+
+        for (let row = 0; row < H; row++) {
+            let run = 0, startCol = 0;
+
+            for (let col = 0; col <= W; col++) {
+                const isWall = col < W && tiles[row][col] === TILE.WALL;
+
+                if (isWall) {
+                    if (run === 0) startCol = col;
+                    run++;
+                } else if (run > 0) {
+                    // Un seul corps pour la bandelette [startCol .. startCol+run)
+                    const bw = run * TS;
+                    const bx = startCol * TS + bw / 2;
+                    const by = row * TS + TS / 2;
+
+                    const s = this._wallGroup.create(bx, by, 'wall');
+                    s.setVisible(false);
+                    s.body.setSize(bw, TS);
+                    s.body.reset(bx, by);
+                    run = 0;
+                }
+            }
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────
     // Debug
     // ──────────────────────────────────────────────────────────────
 
@@ -348,4 +390,7 @@ class DungeonRenderer {
 
     /** @returns {Phaser.GameObjects.Zone[]} */
     getTriggerZones() { return this._triggerZones; }
+
+    /** @returns {Phaser.Physics.Arcade.StaticGroup} */
+    getWallGroup() { return this._wallGroup; }
 }
