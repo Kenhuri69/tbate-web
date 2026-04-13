@@ -17,10 +17,40 @@
     </style>
 </head>
 <body>
-    <!-- Phaser 3 via CDN — chargé avant les modules pour être disponible globalement -->
+    <!-- Phaser 3 via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 
-    <!-- Point d'entrée ES6 module — tous les imports partent d'ici -->
-    <script type="module" src="src/main.js"></script>
+    <!--
+        Scripts chargés en ordre de dépendance (pas de type="module").
+        Fonctionne en file:// sans aucun serveur HTTP.
+        Chaque fichier expose sa classe/constante en global.
+    -->
+
+    <!-- 1. Données statiques (aucune dépendance) -->
+    <script src="src/config/manaCore.js"></script>
+    <script src="src/config/spells.js"></script>
+
+    <!-- 2. Génération de textures (dépend de : rien) -->
+    <script src="src/generators/TextureGenerator.js"></script>
+
+    <!-- 3. Systèmes (dépendent des configs) -->
+    <script src="src/systems/ManaCoreSystem.js"></script>
+    <script src="src/systems/SpellSystem.js"></script>
+
+    <!-- 4. Objets de jeu (dépendent des systèmes) -->
+    <script src="src/objects/Aura.js"></script>
+    <script src="src/objects/Projectile.js"></script>
+    <script src="src/objects/Enemy.js"></script>
+    <script src="src/objects/Player.js"></script>
+
+    <!-- 5. UI (dépend des configs et systèmes) -->
+    <script src="src/ui/HUD.js"></script>
+    <script src="src/ui/SpellBar.js"></script>
+
+    <!-- 6. Scène principale (dépend de tout) -->
+    <script src="src/scenes/GameScene.js"></script>
+
+    <!-- 7. Point d'entrée (lance Phaser) -->
+    <script src="src/main.js"></script>
 </body>
 </html>

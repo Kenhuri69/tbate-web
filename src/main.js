@@ -2,13 +2,11 @@
  * POINT D'ENTRÉE
  *
  * Configure Phaser et lance le jeu.
- * Phaser est disponible en global (chargé via CDN dans index.html).
+ * Toutes les classes sont disponibles en global (chargées via <script> dans index.html).
  *
  * TODO : ajouter Scale.Manager pour le responsive (resize / fullscreen).
  * TODO : ajouter BootScene + PreloadScene avant GameScene.
  */
-
-import { GameScene } from './scenes/GameScene.js';
 
 const config = {
     type  : Phaser.AUTO,
