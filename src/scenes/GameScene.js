@@ -69,10 +69,13 @@ class GameScene extends Phaser.Scene {
         this.enemyGroup = this.physics.add.group();
         this._spawnEnemiesFromDungeon();
 
-        // 8. Système de sorts
+        // 8. Système audio (avant SpellSystem pour capter 'spell:cast')
+        this.audio = new AudioSystem(this);
+
+        // 9. Système de sorts
         this.spellSystem = new SpellSystem(this, this.player.sprite);
 
-        // 9. Collision : projectiles ↔ ennemis
+        // 10. Collision : projectiles ↔ ennemis
         this.physics.add.overlap(
             this.spellSystem.physicsGroup,
             this.enemyGroup,
@@ -81,24 +84,24 @@ class GameScene extends Phaser.Scene {
             this,
         );
 
-        // 10. Zones narratives (hooks TBATE : boss, exit, story…)
+        // 11. Zones narratives (hooks TBATE : boss, exit, story…)
         this._setupTriggerZones();
 
-        // 11. Contrôles mobiles (exposé sur la scène pour que Player y accède)
+        // 12. Contrôles mobiles (exposé sur la scène pour que Player y accède)
         this.mobileControls = new MobileControls(this);
 
-        // 12. UI
+        // 13. UI
         this.hud        = new HUD(this, this.stats);
         this.spellBar   = new SpellBar(this, this.spellSystem);
         this.statsPanel = new StatsPanel(this, this.stats);
 
-        // 13. XP à la mort d'un ennemi
+        // 14. XP à la mort d'un ennemi
         this.events.on('enemy:died', ({ xpDrop }) => {
             this.player.mana.gainExperience(xpDrop);
             this.stats.gainPlayerXP(xpDrop * 2);
         });
 
-        // 14. Caméra
+        // 15. Caméra
         this._setupCamera();
     }
 
@@ -183,6 +186,7 @@ class GameScene extends Phaser.Scene {
         this.player.mana.gainExperience(proj.spell.xpReward);
         this.stats.gainPlayerXP(proj.spell.xpReward * 2);
 
+        this.audio.playHit(crit);
         this._spawnImpactFx(proj.spell, projSprite.x, projSprite.y);
         if (crit) this._spawnCritText(projSprite.x, projSprite.y);
 
