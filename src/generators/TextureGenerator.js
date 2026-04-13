@@ -2,12 +2,14 @@
  * TEXTURE GENERATOR
  *
  * Génère toutes les textures pixel-art via Canvas HTML5.
- * Chaque méthode est idempotente : un second appel ne recrée pas la texture.
+ * Chaque méthode est idempotente : un double-appel ne recrée pas la texture.
  *
  * TODO : remplacer par de vraies spritesheets une fois les assets disponibles.
  * TODO : ajouter des variantes (wall_cracked, tile_lit, enemy_elite, boss…).
+ *
+ * Exposé en global : TextureGenerator
  */
-export class TextureGenerator {
+class TextureGenerator {
 
     /** @param {Phaser.Scene} scene */
     constructor(scene) {
@@ -25,7 +27,7 @@ export class TextureGenerator {
         const cv = this._canvas(32, 48);
         const c  = cv.getContext('2d');
 
-        // — Cape arrière-plan —
+        // Cape arrière-plan
         c.fillStyle = '#2a1a4e';
         c.beginPath();
         c.moveTo(6, 20); c.lineTo(26, 20); c.lineTo(30, 48); c.lineTo(2, 48);
@@ -37,7 +39,7 @@ export class TextureGenerator {
         c.moveTo(10, 22); c.lineTo(16, 22); c.lineTo(14, 46); c.lineTo(8, 46);
         c.closePath(); c.fill();
 
-        // — Robe / torse —
+        // Robe / torse
         c.fillStyle = '#2d1a6e';
         c.fillRect(8, 20, 16, 12);
 
@@ -46,7 +48,7 @@ export class TextureGenerator {
         c.fillRect(13, 22, 2, 8);
         c.fillRect(11, 25, 6, 2);
 
-        // — Visage —
+        // Visage
         c.fillStyle = '#f0d0a0';
         c.fillRect(11, 8, 10, 10);
 
@@ -55,7 +57,7 @@ export class TextureGenerator {
         c.fillRect(12, 11, 2, 2);
         c.fillRect(17, 11, 2, 2);
 
-        // — Capuche —
+        // Capuche
         c.fillStyle = '#1a0a3e';
         c.beginPath(); c.arc(16, 10, 8, Math.PI, 0); c.fill();
         c.fillRect(9, 8, 14, 6);
@@ -64,12 +66,12 @@ export class TextureGenerator {
         c.strokeStyle = '#5533aa'; c.lineWidth = 1;
         c.beginPath(); c.arc(16, 10, 8, Math.PI, 0); c.stroke();
 
-        // — Mains —
+        // Mains
         c.fillStyle = '#f0d0a0';
         c.fillRect(6, 22, 4, 4);
         c.fillRect(22, 22, 4, 4);
 
-        // — Bâton magique —
+        // Bâton magique
         c.strokeStyle = '#8855cc'; c.lineWidth = 2;
         c.beginPath(); c.moveTo(28, 44); c.lineTo(24, 14); c.stroke();
 
@@ -85,7 +87,6 @@ export class TextureGenerator {
 
     // ----------------------------------------------------------------
     // Sol de donjon (dallage sombre, micro-reflets pixel-art)
-    // TODO : variantes (fissuré, illuminé par torche, mouillé)
     // ----------------------------------------------------------------
     createTileTexture() {
         const KEY = 'tile';
@@ -94,7 +95,6 @@ export class TextureGenerator {
         const cv = this._canvas(32, 32);
         const c  = cv.getContext('2d');
 
-        // Base
         c.fillStyle = '#0d0d1a'; c.fillRect(0, 0, 32, 32);
 
         // Quatre pavés
@@ -103,8 +103,7 @@ export class TextureGenerator {
 
         // Joints
         c.fillStyle = '#08080f';
-        c.fillRect(0, 15, 32, 2);
-        c.fillRect(15, 0, 2, 32);
+        c.fillRect(0, 15, 32, 2); c.fillRect(15, 0, 2, 32);
 
         // Micro-reflets
         c.fillStyle = '#1a1a33';
@@ -120,7 +119,6 @@ export class TextureGenerator {
 
     // ----------------------------------------------------------------
     // Mur de donjon (blocs de pierre avec relief et fissures)
-    // TODO : variante avec torche murale émettant de la lumière
     // ----------------------------------------------------------------
     createWallTexture() {
         const KEY = 'wall';
@@ -129,26 +127,17 @@ export class TextureGenerator {
         const cv = this._canvas(32, 32);
         const c  = cv.getContext('2d');
 
-        // Base pierre
         c.fillStyle = '#1a1a2e'; c.fillRect(0, 0, 32, 32);
 
-        // Blocs de pierre
         c.fillStyle = '#222240';
-        c.fillRect(1, 1, 28, 12);
-        c.fillRect(1, 15, 12, 16);
-        c.fillRect(15, 15, 16, 16);
+        c.fillRect(1, 1, 28, 12); c.fillRect(1, 15, 12, 16); c.fillRect(15, 15, 16, 16);
 
-        // Mortier
         c.fillStyle = '#0d0d1a';
-        c.fillRect(0, 13, 32, 2);
-        c.fillRect(13, 13, 2, 19);
+        c.fillRect(0, 13, 32, 2); c.fillRect(13, 13, 2, 19);
 
-        // Reflets de surface
         c.fillStyle = '#2a2a48';
-        [[2, 2, 5, 1], [2, 16, 4, 1], [16, 16, 5, 1]].forEach(([x, y, w, h]) =>
-            c.fillRect(x, y, w, h));
+        [[2, 2, 5, 1], [2, 16, 4, 1], [16, 16, 5, 1]].forEach(([x, y, w, h]) => c.fillRect(x, y, w, h));
 
-        // Fissures
         c.strokeStyle = '#0a0a18'; c.lineWidth = 1;
         c.beginPath(); c.moveTo(8, 4);  c.lineTo(12, 10); c.stroke();
         c.beginPath(); c.moveTo(22, 18); c.lineTo(25, 28); c.stroke();
@@ -191,15 +180,12 @@ export class TextureGenerator {
 
         // Pupilles en fente verticale
         c.fillStyle = '#300000';
-        c.fillRect(11, 14, 2, 4);
-        c.fillRect(20, 14, 2, 4);
+        c.fillRect(11, 14, 2, 4); c.fillRect(20, 14, 2, 4);
 
-        // Reflets des yeux
         c.fillStyle = '#ff6666';
-        c.fillRect(11, 14, 1, 1);
-        c.fillRect(20, 14, 1, 1);
+        c.fillRect(11, 14, 1, 1); c.fillRect(20, 14, 1, 1);
 
-        // Appendices / griffes
+        // Appendices
         c.strokeStyle = '#2d0050'; c.lineWidth = 2;
         c.beginPath(); c.moveTo(4, 24);  c.lineTo(10, 20); c.stroke();
         c.beginPath(); c.moveTo(28, 24); c.lineTo(22, 20); c.stroke();
@@ -210,10 +196,41 @@ export class TextureGenerator {
     }
 
     // ----------------------------------------------------------------
+    // Projectiles — une texture par sort
+    // Appelé avec le tableau SPELLS depuis GameScene.create()
+    // ----------------------------------------------------------------
+    createProjectileTextures(spells) {
+        for (const spell of spells) {
+            const KEY = `proj_${spell.id}`;
+            if (this.scene.textures.exists(KEY)) continue;
+
+            const diameter = spell.size * 4;
+            const cv = this._canvas(diameter, diameter);
+            const c  = cv.getContext('2d');
+            const cx = diameter / 2;
+
+            // Halo radial
+            const hexColor = '#' + spell.color.toString(16).padStart(6, '0');
+            const glow = c.createRadialGradient(cx, cx, 0, cx, cx, cx);
+            glow.addColorStop(0,    hexColor + 'ff');
+            glow.addColorStop(0.45, hexColor + 'cc');
+            glow.addColorStop(1,    hexColor + '00');
+            c.fillStyle = glow;
+            c.fillRect(0, 0, diameter, diameter);
+
+            // Noyau blanc brillant
+            c.fillStyle = '#ffffff';
+            c.beginPath();
+            c.arc(cx, cx, spell.size * 0.45, 0, Math.PI * 2);
+            c.fill();
+
+            this.scene.textures.addCanvas(KEY, cv);
+        }
+    }
+
+    // ----------------------------------------------------------------
     // Utilitaire interne
     // ----------------------------------------------------------------
-
-    /** Crée un canvas HTML5 aux dimensions données. */
     _canvas(w, h) {
         const cv  = document.createElement('canvas');
         cv.width  = w;
