@@ -2,8 +2,8 @@
  * GAME SCENE — Scène principale
  *
  * Orchestration :
- *   StatsSystem → Map → Player → Enemies → SpellSystem →
- *   Overlaps → MobileControls → HUD + SpellBar + StatsPanel → Caméra
+ *   StatsSystem → DungeonGenerator → DungeonRenderer → Player → Enemies →
+ *   SpellSystem → TriggerZones → MobileControls → HUD + SpellBar + StatsPanel → Caméra
  *
  * Flux de dégâts :
  *   Projectile touche ennemi
@@ -11,25 +11,21 @@
  *   → enemy.takeDamage(value)
  *   → player.mana.gainExperience(xpReward)  (Mana Core XP)
  *   → stats.gainPlayerXP(xpReward × 2)      (niveau joueur)
- *   → si crit : affiche texte rouge "CRITIQUE"
+ *   → si crit : affiche texte jaune "CRIT!"
+ *
+ * Flux narratif :
+ *   Joueur entre dans une zone → physics overlap
+ *   → zone._fired = true  (oneShot)
+ *   → scene.events.emit('room:entered', { roomId, hookId, roomType })
+ *   → futur StorySystem écoute et déclenche dialogues / cutscenes TBATE
  *
  * TODO : séparer en BootScene + PreloadScene + GameScene.
  * TODO : ajouter UIScene en overlay (caméra fixe indépendante).
- * TODO : remplacer la tilemap par un générateur de donjon BSP.
+ * TODO : connecter StorySystem à 'room:entered' pour les dialogues/cutscenes.
+ * TODO : murs physiques tile-par-tile (Phaser Tilemap).
  *
  * Dépend de (globals) : tous les modules chargés via index.html
  */
-
-const MAP_COLS  = 50;
-const MAP_ROWS  = 30;
-const TILE_SIZE = 32;
-
-const ENEMY_SPAWN = [
-    { rx: 0.25, ry: 0.30, hp:  50, speed: 55, xpDrop: 30 },
-    { rx: 0.75, ry: 0.30, hp:  80, speed: 38, xpDrop: 50 },
-    { rx: 0.50, ry: 0.75, hp:  65, speed: 68, xpDrop: 40 },
-];
-
 class GameScene extends Phaser.Scene {
 
     constructor() { super({ key: 'GameScene' }); }
@@ -37,7 +33,7 @@ class GameScene extends Phaser.Scene {
     preload() {}
 
     create() {
-        // 1. Textures
+        // 1. Textures (générées via Canvas, aucun asset externe)
         const texGen = new TextureGenerator(this);
         texGen.createTileTexture();
         texGen.createWallTexture();
@@ -45,27 +41,38 @@ class GameScene extends Phaser.Scene {
         texGen.createEnemyTexture();
         texGen.createProjectileTextures(SPELLS);
 
-        // 2. Système de stats (doit être créé avant Player)
+        // 2. Système de stats (avant Player — Player lit stats.moveSpeed)
         this.stats = new StatsSystem(this);
 
-        // 3. Map
-        this._buildMap();
+        // 3. Génération BSP du donjon (pure data, sans Phaser)
+        const generator    = new DungeonGenerator();
+        this.dungeonMap    = generator.generate();
 
-        // 4. Joueur
-        const cx = (MAP_COLS * TILE_SIZE) / 2;
-        const cy = (MAP_ROWS * TILE_SIZE) / 2;
-        this.player = new Player(this, cx, cy, this.stats);
-        this.stats.currentHP = this.stats.maxHP; // init HP après création
+        // 4. Rendu du donjon : tuiles → RenderTexture, overlays, marqueurs, zones
+        this.dungeonRenderer = new DungeonRenderer(this, this.dungeonMap);
+        this.dungeonRenderer.render();
 
-        // 5. Ennemis
+        // 5. Bornes du monde physique
+        this.physics.world.setBounds(
+            0, 0,
+            this.dungeonRenderer.mapPixelWidth,
+            this.dungeonRenderer.mapPixelHeight,
+        );
+
+        // 6. Joueur — centré sur la salle de départ
+        const { x: sx, y: sy } = this.dungeonMap.startPos;
+        this.player = new Player(this, sx, sy, this.stats);
+        this.stats.currentHP = this.stats.maxHP;
+
+        // 7. Ennemis — spawn depuis les points calculés par DungeonRenderer
         this.enemies    = [];
         this.enemyGroup = this.physics.add.group();
-        this._spawnEnemies();
+        this._spawnEnemiesFromDungeon();
 
-        // 6. Système de sorts
+        // 8. Système de sorts
         this.spellSystem = new SpellSystem(this, this.player.sprite);
 
-        // 7. Collision : projectiles ↔ ennemis
+        // 9. Collision : projectiles ↔ ennemis
         this.physics.add.overlap(
             this.spellSystem.physicsGroup,
             this.enemyGroup,
@@ -74,21 +81,24 @@ class GameScene extends Phaser.Scene {
             this,
         );
 
-        // 8. Contrôles mobiles (exposé sur la scène pour que Player y accède)
+        // 10. Zones narratives (hooks TBATE : boss, exit, story…)
+        this._setupTriggerZones();
+
+        // 11. Contrôles mobiles (exposé sur la scène pour que Player y accède)
         this.mobileControls = new MobileControls(this);
 
-        // 9. UI
+        // 12. UI
         this.hud        = new HUD(this, this.stats);
         this.spellBar   = new SpellBar(this, this.spellSystem);
         this.statsPanel = new StatsPanel(this, this.stats);
 
-        // 10. XP à la mort d'un ennemi
+        // 13. XP à la mort d'un ennemi
         this.events.on('enemy:died', ({ xpDrop }) => {
             this.player.mana.gainExperience(xpDrop);
             this.stats.gainPlayerXP(xpDrop * 2);
         });
 
-        // 11. Caméra
+        // 14. Caméra
         this._setupCamera();
     }
 
@@ -104,54 +114,75 @@ class GameScene extends Phaser.Scene {
     }
 
     // ----------------------------------------------------------------
-    // Privé
+    // Spawn ennemis
     // ----------------------------------------------------------------
 
-    _buildMap() {
-        for (let row = 0; row < MAP_ROWS; row++) {
-            for (let col = 0; col < MAP_COLS; col++) {
-                const isWall = (
-                    row === 0 || row === MAP_ROWS - 1 ||
-                    col === 0 || col === MAP_COLS - 1
-                );
-                this.add.image(
-                    col * TILE_SIZE + TILE_SIZE / 2,
-                    row * TILE_SIZE + TILE_SIZE / 2,
-                    isWall ? 'wall' : 'tile',
-                ).setDepth(0);
-            }
-        }
-        this.physics.world.setBounds(0, 0, MAP_COLS * TILE_SIZE, MAP_ROWS * TILE_SIZE);
-    }
+    /**
+     * Crée les ennemis à partir des points de spawn calculés par DungeonRenderer.
+     * HP / vitesse / XP sont mis à l'échelle du multiplicateur de la salle.
+     */
+    _spawnEnemiesFromDungeon() {
+        for (const spawn of this.dungeonRenderer.getEnemySpawns()) {
+            const mult  = spawn.xpMultiplier;
+            const hp    = Math.round(50 * mult);
+            const speed = spawn.roomType === 'boss' ? 35 : 55;
+            const xpDrop = Math.round(30 * mult);
 
-    _spawnEnemies() {
-        const W = MAP_COLS * TILE_SIZE;
-        const H = MAP_ROWS * TILE_SIZE;
-        ENEMY_SPAWN.forEach(cfg => {
-            const e = new Enemy(this, W * cfg.rx, H * cfg.ry, cfg);
+            const e = new Enemy(this, spawn.x, spawn.y, { hp, speed, xpDrop });
             this.enemies.push(e);
             this.enemyGroup.add(e.sprite);
-        });
+        }
     }
 
+    // ----------------------------------------------------------------
+    // Zones narratives (hooks histoire TBATE)
+    // ----------------------------------------------------------------
+
     /**
-     * Callback d'overlap : projectile touche un ennemi.
-     * Applique le bonus MAG + critique depuis StatsSystem.
+     * Connecte le joueur aux zones de déclenchement du donjon.
+     * Chaque zone ne se déclenche qu'une fois (zone._fired).
+     * Émet 'room:entered' pour le futur StorySystem.
      */
+    _setupTriggerZones() {
+        const zones = this.dungeonRenderer.getTriggerZones();
+        if (!zones.length) return;
+
+        this.physics.add.overlap(
+            this.player.sprite,
+            zones,
+            (playerSprite, zone) => {
+                if (zone._fired) return;
+                zone._fired = true;
+
+                this.events.emit('room:entered', {
+                    roomId  : zone.roomId,
+                    hookId  : zone.hookId,
+                    roomType: zone.roomType,
+                });
+
+                // Placeholder visuel jusqu'à l'implémentation du StorySystem
+                console.log(
+                    `[TBATE] room:entered — hookId="${zone.hookId}"  type="${zone.roomType}"`,
+                );
+            },
+        );
+    }
+
+    // ----------------------------------------------------------------
+    // Combat
+    // ----------------------------------------------------------------
+
     _onProjectileHitEnemy(projSprite, enemySprite) {
         const proj  = projSprite.projRef;
         const enemy = enemySprite.enemyRef;
         if (!proj?.alive || !enemy?.alive) return;
 
-        // Dégâts avec stats
         const { value: dmg, crit } = this.stats.spellDamage(proj.spell.damage);
         enemy.takeDamage(dmg);
 
-        // XP Mana Core + XP joueur par hit
         this.player.mana.gainExperience(proj.spell.xpReward);
         this.stats.gainPlayerXP(proj.spell.xpReward * 2);
 
-        // Effets visuels
         this._spawnImpactFx(proj.spell, projSprite.x, projSprite.y);
         if (crit) this._spawnCritText(projSprite.x, projSprite.y);
 
@@ -181,9 +212,17 @@ class GameScene extends Phaser.Scene {
         });
     }
 
+    // ----------------------------------------------------------------
+    // Caméra
+    // ----------------------------------------------------------------
+
     _setupCamera() {
         this.cameras.main
-            .setBounds(0, 0, MAP_COLS * TILE_SIZE, MAP_ROWS * TILE_SIZE)
+            .setBounds(
+                0, 0,
+                this.dungeonRenderer.mapPixelWidth,
+                this.dungeonRenderer.mapPixelHeight,
+            )
             .startFollow(this.player.sprite, true, 0.1, 0.1)
             .setZoom(1.5)
             .setBackgroundColor('#000000');
