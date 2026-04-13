@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>TBATE RPG</title>
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -13,6 +13,8 @@
             align-items: center;
             min-height: 100vh;
             overflow: hidden;
+            /* Évite le zoom sur double-tap mobile */
+            touch-action: none;
         }
     </style>
 </head>
@@ -21,36 +23,40 @@
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 
     <!--
-        Scripts chargés en ordre de dépendance (pas de type="module").
-        Fonctionne en file:// sans aucun serveur HTTP.
-        Chaque fichier expose sa classe/constante en global.
+        Ordre de chargement = ordre des dépendances.
+        Fonctionne en file:// sans serveur HTTP.
+        Chaque fichier expose sa classe/constante en global (pas d'import/export).
     -->
 
     <!-- 1. Données statiques (aucune dépendance) -->
     <script src="src/config/manaCore.js"></script>
     <script src="src/config/spells.js"></script>
+    <script src="src/config/stats.js"></script>
 
-    <!-- 2. Génération de textures (dépend de : rien) -->
+    <!-- 2. Génération de textures -->
     <script src="src/generators/TextureGenerator.js"></script>
 
     <!-- 3. Systèmes (dépendent des configs) -->
     <script src="src/systems/ManaCoreSystem.js"></script>
+    <script src="src/systems/StatsSystem.js"></script>
     <script src="src/systems/SpellSystem.js"></script>
 
-    <!-- 4. Objets de jeu (dépendent des systèmes) -->
+    <!-- 4. Objets de jeu -->
     <script src="src/objects/Aura.js"></script>
     <script src="src/objects/Projectile.js"></script>
     <script src="src/objects/Enemy.js"></script>
     <script src="src/objects/Player.js"></script>
 
-    <!-- 5. UI (dépend des configs et systèmes) -->
+    <!-- 5. UI (dépend des configs, systèmes et objets) -->
     <script src="src/ui/HUD.js"></script>
     <script src="src/ui/SpellBar.js"></script>
+    <script src="src/ui/MobileControls.js"></script>
+    <script src="src/ui/StatsPanel.js"></script>
 
     <!-- 6. Scène principale (dépend de tout) -->
     <script src="src/scenes/GameScene.js"></script>
 
-    <!-- 7. Point d'entrée (lance Phaser) -->
+    <!-- 7. Point d'entrée -->
     <script src="src/main.js"></script>
 </body>
 </html>
