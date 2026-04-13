@@ -32,9 +32,15 @@
     <script src="src/config/manaCore.js"></script>
     <script src="src/config/spells.js"></script>
     <script src="src/config/stats.js"></script>
+    <script src="src/config/dungeon.js"></script>
 
-    <!-- 2. Génération de textures -->
+    <!-- 1b. Contenu des salles (dépend de dungeon.js → ROOM_TYPES) -->
+    <script src="src/data/roomContent.js"></script>
+
+    <!-- 2. Génération de textures + donjon BSP -->
     <script src="src/generators/TextureGenerator.js"></script>
+    <script src="src/generators/DungeonGenerator.js"></script>
+    <script src="src/generators/DungeonRenderer.js"></script>
 
     <!-- 3. Systèmes (dépendent des configs) -->
     <script src="src/systems/ManaCoreSystem.js"></script>
