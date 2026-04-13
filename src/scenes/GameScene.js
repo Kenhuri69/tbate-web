@@ -1,44 +1,43 @@
 /**
  * GAME SCENE — Scène principale
  *
- * Orchestre : map, joueur, ennemis, sorts, collisions, caméra.
+ * Orchestration :
+ *   StatsSystem → Map → Player → Enemies → SpellSystem →
+ *   Overlaps → MobileControls → HUD + SpellBar + StatsPanel → Caméra
  *
- * Flux create() :
- *   textures → map → joueur → ennemis → SpellSystem →
- *   overlap → HUD + SpellBar → caméra
+ * Flux de dégâts :
+ *   Projectile touche ennemi
+ *   → stats.spellDamage(base)  (bonus MAG + crit)
+ *   → enemy.takeDamage(value)
+ *   → player.mana.gainExperience(xpReward)  (Mana Core XP)
+ *   → stats.gainPlayerXP(xpReward × 2)      (niveau joueur)
+ *   → si crit : affiche texte rouge "CRITIQUE"
  *
  * TODO : séparer en BootScene + PreloadScene + GameScene.
  * TODO : ajouter UIScene en overlay (caméra fixe indépendante).
- * TODO : remplacer la map par un générateur de donjon BSP.
+ * TODO : remplacer la tilemap par un générateur de donjon BSP.
  *
- * Dépend de (globals) : TextureGenerator, Player, Enemy, SpellSystem,
- *                       HUD, SpellBar, SPELLS
+ * Dépend de (globals) : tous les modules chargés via index.html
  */
 
 const MAP_COLS  = 50;
 const MAP_ROWS  = 30;
 const TILE_SIZE = 32;
 
-// Positions de spawn des ennemis (fractions relatives de la map)
-// TODO : générer depuis un niveau JSON
 const ENEMY_SPAWN = [
-    { rx: 0.25, ry: 0.30, hp: 50,  speed: 55, xpDrop: 30 },
-    { rx: 0.75, ry: 0.30, hp: 80,  speed: 38, xpDrop: 50 },
-    { rx: 0.50, ry: 0.75, hp: 65,  speed: 68, xpDrop: 40 },
+    { rx: 0.25, ry: 0.30, hp:  50, speed: 55, xpDrop: 30 },
+    { rx: 0.75, ry: 0.30, hp:  80, speed: 38, xpDrop: 50 },
+    { rx: 0.50, ry: 0.75, hp:  65, speed: 68, xpDrop: 40 },
 ];
 
 class GameScene extends Phaser.Scene {
 
-    constructor() {
-        super({ key: 'GameScene' });
-    }
+    constructor() { super({ key: 'GameScene' }); }
 
-    preload() {
-        // Rien à précharger — tout est généré procéduralement.
-    }
+    preload() {}
 
     create() {
-        // 1. Textures procédurales
+        // 1. Textures
         const texGen = new TextureGenerator(this);
         texGen.createTileTexture();
         texGen.createWallTexture();
@@ -46,23 +45,27 @@ class GameScene extends Phaser.Scene {
         texGen.createEnemyTexture();
         texGen.createProjectileTextures(SPELLS);
 
-        // 2. Tilemap
+        // 2. Système de stats (doit être créé avant Player)
+        this.stats = new StatsSystem(this);
+
+        // 3. Map
         this._buildMap();
 
-        // 3. Joueur (centre de la map)
+        // 4. Joueur
         const cx = (MAP_COLS * TILE_SIZE) / 2;
         const cy = (MAP_ROWS * TILE_SIZE) / 2;
-        this.player = new Player(this, cx, cy);
+        this.player = new Player(this, cx, cy, this.stats);
+        this.stats.currentHP = this.stats.maxHP; // init HP après création
 
-        // 4. Ennemis
+        // 5. Ennemis
         this.enemies    = [];
         this.enemyGroup = this.physics.add.group();
         this._spawnEnemies();
 
-        // 5. Système de sorts
+        // 6. Système de sorts
         this.spellSystem = new SpellSystem(this, this.player.sprite);
 
-        // 6. Collision : projectiles ↔ ennemis
+        // 7. Collision : projectiles ↔ ennemis
         this.physics.add.overlap(
             this.spellSystem.physicsGroup,
             this.enemyGroup,
@@ -71,16 +74,21 @@ class GameScene extends Phaser.Scene {
             this,
         );
 
-        // 7. UI
-        this.hud      = new HUD(this);
-        this.spellBar = new SpellBar(this, this.spellSystem);
+        // 8. Contrôles mobiles (exposé sur la scène pour que Player y accède)
+        this.mobileControls = new MobileControls(this);
 
-        // 8. XP à la mort d'un ennemi
+        // 9. UI
+        this.hud        = new HUD(this, this.stats);
+        this.spellBar   = new SpellBar(this, this.spellSystem);
+        this.statsPanel = new StatsPanel(this, this.stats);
+
+        // 10. XP à la mort d'un ennemi
         this.events.on('enemy:died', ({ xpDrop }) => {
             this.player.mana.gainExperience(xpDrop);
+            this.stats.gainPlayerXP(xpDrop * 2);
         });
 
-        // 9. Caméra
+        // 11. Caméra
         this._setupCamera();
     }
 
@@ -89,12 +97,9 @@ class GameScene extends Phaser.Scene {
         this.spellSystem.update();
         this.spellBar.update();
 
-        // IA des ennemis
         const px = this.player.sprite.x;
         const py = this.player.sprite.y;
         this.enemies.forEach(e => e.update(px, py));
-
-        // Nettoyage des ennemis dont l'animation de mort est terminée
         this.enemies = this.enemies.filter(e => e.alive || (e.sprite && e.sprite.active));
     }
 
@@ -102,10 +107,6 @@ class GameScene extends Phaser.Scene {
     // Privé
     // ----------------------------------------------------------------
 
-    /**
-     * Tilemap : murs sur le périmètre, sol à l'intérieur.
-     * TODO : générateur BSP / WFC pour des donjons vrais.
-     */
     _buildMap() {
         for (let row = 0; row < MAP_ROWS; row++) {
             for (let col = 0; col < MAP_COLS; col++) {
@@ -124,55 +125,62 @@ class GameScene extends Phaser.Scene {
     }
 
     _spawnEnemies() {
-        const mapW = MAP_COLS * TILE_SIZE;
-        const mapH = MAP_ROWS * TILE_SIZE;
+        const W = MAP_COLS * TILE_SIZE;
+        const H = MAP_ROWS * TILE_SIZE;
         ENEMY_SPAWN.forEach(cfg => {
-            const enemy = new Enemy(this, mapW * cfg.rx, mapH * cfg.ry, cfg);
-            this.enemies.push(enemy);
-            this.enemyGroup.add(enemy.sprite);
+            const e = new Enemy(this, W * cfg.rx, H * cfg.ry, cfg);
+            this.enemies.push(e);
+            this.enemyGroup.add(e.sprite);
         });
     }
 
     /**
-     * Callback Phaser Arcade : projectile touche un ennemi.
-     * Les deux sprites sont passés automatiquement.
+     * Callback d'overlap : projectile touche un ennemi.
+     * Applique le bonus MAG + critique depuis StatsSystem.
      */
     _onProjectileHitEnemy(projSprite, enemySprite) {
         const proj  = projSprite.projRef;
         const enemy = enemySprite.enemyRef;
-
-        // Guards : double-collision dans le même frame
         if (!proj?.alive || !enemy?.alive) return;
 
-        enemy.takeDamage(proj.spell.damage);
+        // Dégâts avec stats
+        const { value: dmg, crit } = this.stats.spellDamage(proj.spell.damage);
+        enemy.takeDamage(dmg);
+
+        // XP Mana Core + XP joueur par hit
         this.player.mana.gainExperience(proj.spell.xpReward);
+        this.stats.gainPlayerXP(proj.spell.xpReward * 2);
+
+        // Effets visuels
         this._spawnImpactFx(proj.spell, projSprite.x, projSprite.y);
+        if (crit) this._spawnCritText(projSprite.x, projSprite.y);
+
         proj.destroy();
     }
 
-    /** Éclat graphique au point d'impact. */
     _spawnImpactFx(spell, x, y) {
         const gfx = this.add.graphics().setDepth(16);
         gfx.fillStyle(spell.color, 0.85);
         gfx.fillCircle(x, y, spell.size * 2.5);
         gfx.fillStyle(0xffffff, 0.50);
         gfx.fillCircle(x, y, spell.size);
-
         this.tweens.add({
-            targets   : gfx,
-            alpha     : 0,
-            scaleX    : 2.5,
-            scaleY    : 2.5,
-            duration  : 220,
-            ease      : 'Power2',
-            onComplete: () => gfx.destroy(),
+            targets: gfx, alpha: 0, scaleX: 2.5, scaleY: 2.5,
+            duration: 220, ease: 'Power2', onComplete: () => gfx.destroy(),
         });
     }
 
-    /**
-     * Caméra avec lerp doux et zoom pixel-art 1.5×.
-     * TODO : screen shake sur dégâts reçus (camera.shake).
-     */
+    _spawnCritText(x, y) {
+        const t = this.add.text(x, y - 10, 'CRIT!', {
+            fontFamily: 'monospace', fontSize: '14px', color: '#ffdd00',
+            stroke: '#000000', strokeThickness: 3,
+        }).setDepth(20).setOrigin(0.5);
+        this.tweens.add({
+            targets: t, y: y - 50, alpha: 0, duration: 700, ease: 'Power2',
+            onComplete: () => t.destroy(),
+        });
+    }
+
     _setupCamera() {
         this.cameras.main
             .setBounds(0, 0, MAP_COLS * TILE_SIZE, MAP_ROWS * TILE_SIZE)
