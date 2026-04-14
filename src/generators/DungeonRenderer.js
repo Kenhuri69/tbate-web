@@ -252,7 +252,7 @@ class DungeonRenderer {
         const TS = this.map.tileSize;
 
         for (const room of this.map.rooms) {
-            if (!room.hookId) continue; // uniquement salles spéciales
+            if (!room.hookId) continue;
 
             const zone = this.scene.add.zone(
                 (room.bounds.x + room.bounds.w * 0.5) * TS,
@@ -261,14 +261,15 @@ class DungeonRenderer {
                 room.bounds.h * TS,
             );
 
-            // Corps physique statique → overlap avec le joueur
+            // Overlap arcade : la Zone a besoin d'un corps physique MAIS
+            // on le met en isSensor pour qu'il ne bloque PAS le joueur.
             this.scene.physics.add.existing(zone, true);
+            zone.body.isSensor = true; // traverse sans bloquer
 
-            // Métadonnées accessibles dans le callback d'overlap
             zone.roomId   = room.id;
             zone.hookId   = room.hookId;
             zone.roomType = room.type;
-            zone._fired   = false;    // oneShot : ne se déclenche qu'une fois
+            zone._fired   = false;
 
             this._triggerZones.push(zone);
         }
@@ -350,21 +351,14 @@ class DungeonRenderer {
                     if (run === 0) startCol = col;
                     run++;
                 } else if (run > 0) {
-                    // Un seul corps pour la bandelette [startCol .. startCol+run)
-                    // bx/by = coin supérieur gauche en pixels
-                    const bw = run * TS;
-                    const bx = startCol * TS;          // bord gauche
-                    const by = row * TS;               // bord haut
+                    // Bandelette [startCol .. startCol+run)
+                    const bw  = run * TS;
+                    const cx  = startCol * TS + bw / 2;   // centre X pixel
+                    const cy  = row      * TS + TS  / 2;  // centre Y pixel
 
-                    // On utilise un Rectangle invisible plutôt qu'un sprite
-                    // pour éviter le décalage d'origine 32×32 du sprite 'wall'
-                    const rect = this.scene.add.rectangle(
-                        bx + bw / 2,   // centre X
-                        by + TS / 2,   // centre Y
-                        bw, TS,
-                    ).setVisible(false);
-
-                    this.scene.physics.add.existing(rect, true); // statique
+                    // Rectangle Phaser invisible : pas de texture → pas de décalage d'origine
+                    const rect = this.scene.add.rectangle(cx, cy, bw, TS).setVisible(false);
+                    this.scene.physics.add.existing(rect, true); // corps statique
                     this._wallGroup.add(rect);
 
                     run = 0;
