@@ -174,23 +174,26 @@ class MobileControls {
         };
     }
 
-    
-
     resize(newW, newH) {
         this._W = newW;
         this._H = newH;
 
-        // Destruction sécurisée des anciens boutons
+        // 1. Destruction de tout ce qui existe
         if (this._castBtn?.zone) this._castBtn.zone.destroy();
         if (this._menuBtn?.zone) this._menuBtn.zone.destroy();
+        if (this._joyBase) this._joyBase.destroy();
+        if (this._joyKnob) this._joyKnob.destroy();
 
-        // Recréation des boutons
+        // 2. Recréation complète du joystick graphique
+        this._buildJoystickGfx();
+
+        // 3. Recréation des boutons
         this._buildButtons(newW, newH);
 
-        // IMPORTANT : ré-enregistrer les événements du joystick avec les nouvelles dimensions
+        // 4. Ré-enregistrement des événements pointer avec les nouvelles dimensions
         this._registerPointerEvents(newW, newH);
 
-        console.log(`[MobileControls] Resize appliqué → ${newW} × ${newH}`);
+        console.log(`[MobileControls] Resize COMPLET appliqué → ${newW} × ${newH}`);
     }
 
    
