@@ -160,19 +160,20 @@ class MobileControls {
         };
     }
 
-    /** Méthode appelée à chaque rotation/redimensionnement */
     resize(newW, newH) {
         this._W = newW;
         this._H = newH;
 
-        // Recréation des boutons (plus simple et fiable que repositionner tout)
-        if (this._castBtn) this._castBtn.zone.destroy();
-        if (this._menuBtn) this._menuBtn.zone.destroy();
+        // Destruction sécurisée
+        if (this._castBtn?.zone) this._castBtn.zone.destroy();
+        if (this._menuBtn?.zone) this._menuBtn.zone.destroy();
 
         this._buildButtons(newW, newH);
 
-        console.log(`[MobileControls] Resize appliqué → \( {newW}× \){newH}`);
+        console.log(`[MobileControls] Resize appliqué → ${newW} × ${newH}`);
     }
+
+   
 }
 
 window.MobileControls = MobileControls; // pour compatibilité avec index.html
