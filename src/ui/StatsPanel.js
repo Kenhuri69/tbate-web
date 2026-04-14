@@ -90,7 +90,7 @@ class StatsPanel {
         const overlay = this.scene.add.rectangle(0, 0, W, H, 0x000000, 0.65)
             .setOrigin(0).setScrollFactor(0).setDepth(PANEL_DEPTH).setInteractive();
         this._elements.push(overlay);
-        this._interactive.push(overlay); // ← doit être dans _interactive pour que hide() le désactive
+        this._interactive.push(overlay); // nécessaire pour disableInteractive() dans hide()
 
         // — Corps du panel —
         const bg = this.scene.add.rectangle(px, py, PANEL_W, PANEL_H, 0x0a0a1a, 0.97)
@@ -98,7 +98,7 @@ class StatsPanel {
         const border = this.scene.add.rectangle(px, py, PANEL_W, PANEL_H)
             .setOrigin(0).setScrollFactor(0).setDepth(PANEL_DEPTH + 1)
             .setStrokeStyle(1, 0x334466, 1).setFillStyle(0x000000, 0);
-        this._elements.push(bg, border); // ← border manquait → restait visible après hide()
+        this._elements.push(bg, border); // border était oubliée → restait visible après hide()
 
         let y = py + 14;
 
