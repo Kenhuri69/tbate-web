@@ -41,14 +41,14 @@ class GameScene extends Phaser.Scene {
         texGen.createEnemyTexture();
         texGen.createProjectileTextures(SPELLS);
 
-        // 2. Système de stats (avant Player — Player lit stats.moveSpeed)
+        // 2. Système de stats
         this.stats = new StatsSystem(this);
 
-        // 3. Génération BSP du donjon (pure data, sans Phaser)
-        const generator    = new DungeonGenerator();
-        this.dungeonMap    = generator.generate();
+        // 3. Génération du donjon
+        const generator = new DungeonGenerator();
+        this.dungeonMap = generator.generate();
 
-        // 4. Rendu du donjon : tuiles → RenderTexture, overlays, marqueurs, zones
+        // 4. Rendu du donjon
         this.dungeonRenderer = new DungeonRenderer(this, this.dungeonMap);
         this.dungeonRenderer.render();
 
@@ -56,76 +56,84 @@ class GameScene extends Phaser.Scene {
         this.physics.world.setBounds(
             0, 0,
             this.dungeonRenderer.mapPixelWidth,
-            this.dungeonRenderer.mapPixelHeight,
+            this.dungeonRenderer.mapPixelHeight
         );
 
-        // 6. Joueur — centré sur la salle de départ
+        // 6. Joueur
         const { x: sx, y: sy } = this.dungeonMap.startPos;
         this.player = new Player(this, sx, sy, this.stats);
         this.stats.currentHP = this.stats.maxHP;
 
-        // 7. Ennemis — spawn depuis les points calculés par DungeonRenderer
+        // 7. Ennemis
         this.enemies    = [];
         this.enemyGroup = this.physics.add.group();
         this._spawnEnemiesFromDungeon();
 
-        // 8. Collisions murs (joueur, ennemis → bloqués par les murs)
+        // 8. Collisions murs + DEBUG
         const wallGroup = this.dungeonRenderer.getWallGroup();
+        console.log(`[DEBUG] WallGroup créé avec ${wallGroup.getLength()} corps physiques`);
+
         this.physics.add.collider(this.player.sprite, wallGroup);
-        this.physics.add.collider(this.enemyGroup,    wallGroup);
+        this.physics.add.collider(this.enemyGroup, wallGroup);
 
-        // Cooldown dégâts de contact ennemi (frames)
-        this._contactCooldown = 0;
-
-        // 9. Système audio (avant SpellSystem pour capter 'spell:cast')
+        // 9. Audio + Sorts
         this.audio = new AudioSystem(this);
-
-        // 10. Système de sorts
         this.spellSystem = new SpellSystem(this, this.player.sprite);
 
-        // 11. Collision : projectiles ↔ ennemis
+        // Collisions projectiles
         this.physics.add.overlap(
             this.spellSystem.physicsGroup,
             this.enemyGroup,
             this._onProjectileHitEnemy,
             null,
-            this,
+            this
         );
 
-        // 11b. Projectiles détruits au contact d'un mur
         this.physics.add.collider(
             this.spellSystem.physicsGroup,
             wallGroup,
-            (projSprite) => { projSprite.projRef?.destroy(); },
+            (projSprite) => { projSprite.projRef?.destroy(); }
         );
 
-        // 11c. Dégâts de contact ennemi → joueur (avec cooldown)
+        // Dégâts de contact
+        this._contactCooldown = 0;
         this.physics.add.overlap(
             this.player.sprite,
             this.enemyGroup,
             this._onEnemyContactPlayer,
             null,
-            this,
+            this
         );
 
-        // 13. Zones narratives (hooks TBATE : boss, exit, story…)
+        // 10. Zones trigger
         this._setupTriggerZones();
 
-        // 14. Contrôles mobiles (exposé sur la scène pour que Player y accède)
+        // 11. MOBILE CONTROLS + SUPPORT ROTATION / RESIZE
         this.mobileControls = new MobileControls(this);
 
-        // 15. UI
+        const resizeHandler = () => {
+            if (this.mobileControls && typeof this.mobileControls.resize === 'function') {
+                this.mobileControls.resize(this.scale.width, this.scale.height);
+            }
+        };
+
+        this.scale.on('resize', resizeHandler, this);
+        this.events.once('shutdown', () => {
+            this.scale.off('resize', resizeHandler, this);
+        });
+
+        // 12. UI
         this.hud        = new HUD(this, this.stats);
         this.spellBar   = new SpellBar(this, this.spellSystem);
         this.statsPanel = new StatsPanel(this, this.stats);
 
-        // 16. XP à la mort d'un ennemi
+        // 13. XP
         this.events.on('enemy:died', ({ xpDrop }) => {
             this.player.mana.gainExperience(xpDrop);
             this.stats.gainPlayerXP(xpDrop * 2);
         });
 
-        // 15. Caméra
+        // 14. Caméra
         this._setupCamera();
     }
 
