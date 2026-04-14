@@ -1,0 +1,31 @@
+{
+  "chapter_info": {
+    "title": "La Renaissance",
+    "arc": 1,
+    "chapter": 1
+  },
+  "sequences": {
+    "awakening": [
+      {
+        "name": "Arthur",
+        "portrait": "arthur_baby",
+        "side": "left",
+        "text": "Où suis-je ? La dernière chose dont je me souviens est d'être un Roi..."
+      },
+      {
+        "name": "Alice",
+        "portrait": "alice_leywin",
+        "side": "right",
+        "text": "Regarde, Reynolds ! Il essaie déjà de comprendre son environnement."
+      }
+    ],
+    "first_mana_rotation": [
+      {
+        "name": "Arthur",
+        "portrait": "arthur_baby",
+        "side": "left",
+        "text": "Je sens les particules de mana. Elles sont partout."
+      }
+    ]
+  }
+}
