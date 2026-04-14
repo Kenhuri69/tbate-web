@@ -11,7 +11,7 @@ const config = {
     width : 1280,
     height: 720,
     scale : {
-        mode      : Phaser.Scale.ENVELOP,   // remplit l'écran, rogne si nécessaire
+        mode      : Phaser.Scale.FIT,   // remplit l'écran, rogne si nécessaire
         autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     input : {
