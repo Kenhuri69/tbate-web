@@ -119,6 +119,11 @@ class MobileControls {
         const JOY_RIGHT = W * 0.44;
         const JOY_TOP   = H * 0.48;
 
+        // On enlève les anciens listeners pour éviter les doublons
+        this.scene.input.off('pointerdown');
+        this.scene.input.off('pointermove');
+        this.scene.input.off('pointerup');
+
         this.scene.input.on('pointerdown', (ptr) => {
             if (this._joyPointerId !== null) return;
             if (ptr.x > JOY_RIGHT || ptr.y < JOY_TOP) return;
@@ -142,6 +147,7 @@ class MobileControls {
             this._joyKnob.setAlpha(0);
         });
     }
+
 
     _updateJoystick(ptr) {
         const dx = ptr.x - this._joyOrigin.x;
@@ -168,15 +174,21 @@ class MobileControls {
         };
     }
 
+    
+
     resize(newW, newH) {
         this._W = newW;
         this._H = newH;
 
-        // Destruction sécurisée
+        // Destruction sécurisée des anciens boutons
         if (this._castBtn?.zone) this._castBtn.zone.destroy();
         if (this._menuBtn?.zone) this._menuBtn.zone.destroy();
 
+        // Recréation des boutons
         this._buildButtons(newW, newH);
+
+        // IMPORTANT : ré-enregistrer les événements du joystick avec les nouvelles dimensions
+        this._registerPointerEvents(newW, newH);
 
         console.log(`[MobileControls] Resize appliqué → ${newW} × ${newH}`);
     }
