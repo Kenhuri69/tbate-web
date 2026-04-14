@@ -26,6 +26,8 @@
  *
  * Dépend de (globals) : tous les modules chargés via index.html
  */
+import { StoryManager } from '../systems/StoryManager.js';
+
 class GameScene extends Phaser.Scene {
 
     constructor() { super({ key: 'GameScene' }); }
@@ -33,6 +35,16 @@ class GameScene extends Phaser.Scene {
     preload() {}
 
     create() {
+
+// On crée le manager et on l'attache à la scène
+        this.storyManager = new StoryManager(this);
+
+        // Exemple : Charger le chapitre actuel d'Arthur au démarrage
+        this.storyManager.loadChapterData((data) => {
+            console.log("Histoire chargée : " + data.metadata.title);
+        });
+    }
+
         // 1. Textures (générées via Canvas, aucun asset externe)
         const texGen = new TextureGenerator(this);
         texGen.createTileTexture();
