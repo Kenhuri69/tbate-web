@@ -42,7 +42,6 @@ class MobileControls {
         this._joyKnob.strokeCircle(0, 0, JOY_KNOB_RADIUS);
     }
 
-     
     _buildButtons(W, H) {
         // Cast button (bas droite)
         this._castBtn = this._makeButton(
@@ -56,26 +55,34 @@ class MobileControls {
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:nextspell'); }
         );
 
-        // MENU BUTTON - Version plus visible et robuste
+        // ==================== MENU BUTTON - VERSION DEBUG VISIBLE ====================
         this._menuBtn = this._makeButton(
-            W - 60, 60, 35, 0x2a1a55, '≡',           // légèrement plus grand et décalé
+            W - 65, 75, 42, 0xff0000, '≡',        // Rouge vif + plus grand pour tester
             (ptr) => { 
                 if (ptr.id !== this._joyPointerId) {
                     this.scene.events.emit('mobile:menu');
-                    console.log('[MobileControls] Menu button clicked !');
+                    console.log('[MobileControls] MENU CLICKED !');
                 }
             },
             true
         );
 
-        // Force le bouton menu à être au-dessus de tout
+        // Force maximale de visibilité
         if (this._menuBtn && this._menuBtn.gfx) {
-            this._menuBtn.gfx.setDepth(300);
+            this._menuBtn.gfx.setDepth(999);
+            this._menuBtn.gfx.setAlpha(1.0);
         }
         if (this._menuBtn && this._menuBtn.zone) {
-            this._menuBtn.zone.setDepth(305);
+            this._menuBtn.zone.setDepth(1000);
         }
-    }
+
+        // Debug visuel temporaire : petit rectangle autour du bouton
+        const debugRect = this.scene.add.rectangle(W - 65, 75, 90, 90, 0xffff00, 0.3)
+            .setScrollFactor(0)
+            .setDepth(998);
+        this.scene.time.delayedCall(3000, () => debugRect.destroy()); // disparaît après 3s
+    } 
+    
 
     _makeButton(x, y, r, color, icon, onDown, stopProp = false) {
         const gfx = this.scene.add.graphics().setScrollFactor(0).setDepth(210);
