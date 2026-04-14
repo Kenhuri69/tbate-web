@@ -272,16 +272,21 @@ class GameScene extends Phaser.Scene {
 
     _setupCamera() {
         const cam = this.cameras.main;
+
+        // Zoom adaptatif : ENVELOP agrandit déjà le canvas sur mobile,
+        // un zoom caméra de 1.5 en plus serait trop restrictif.
+        const isMobile = this.scale.width < 900 || window.innerWidth < 900;
+        const zoom = isMobile ? 1.0 : 1.5;
+
         cam.setBounds(
                 0, 0,
                 this.dungeonRenderer.mapPixelWidth,
                 this.dungeonRenderer.mapPixelHeight,
             )
-            .startFollow(this.player.sprite, true, 1, 1) // lerp=1 → centrage immédiat
-            .setZoom(1.5)
+            .startFollow(this.player.sprite, true, 1, 1)
+            .setZoom(zoom)
             .setBackgroundColor('#000000');
 
-        // Passer en suivi fluide après le 1er frame rendu
         this.time.delayedCall(16, () => cam.setLerp(0.10, 0.10));
     }
 }
