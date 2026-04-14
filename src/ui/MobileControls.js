@@ -1,5 +1,5 @@
 /**
- * MOBILE CONTROLS - Version corrigée avec support resize/rotation
+ * MOBILE CONTROLS - Version finale avec support rotation écran
  */
 
 const JOY_MAX_RADIUS  = 58;
@@ -42,9 +42,8 @@ class MobileControls {
         this._joyKnob.strokeCircle(0, 0, JOY_KNOB_RADIUS);
     }
 
-
     _buildButtons(W, H) {
-        // Cast button
+        // Cast button (bas droite)
         this._castBtn = this._makeButton(
             W - 80, H - 100, 52, 0x5533bb, 'Cast',
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:cast'); }
@@ -56,9 +55,9 @@ class MobileControls {
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:nextspell'); }
         );
 
-        // ==================== MENU BUTTON - VERSION ULTRA ROBUSTE ====================
+        // Menu button (haut droite) - rouge pour bien voir
         this._menuBtn = this._makeButton(
-            W - 65, 75, 42, 0xff0000, '≡',     // Rouge vif + plus gros
+            W - 65, 75, 42, 0xff0000, '≡',
             (ptr) => { 
                 if (ptr.id !== this._joyPointerId) {
                     this.scene.events.emit('mobile:menu');
@@ -68,21 +67,13 @@ class MobileControls {
             true
         );
 
-        // Force maximale (après création)
+        // Force visibilité maximale
         if (this._menuBtn?.gfx) {
-            this._menuBtn.gfx.setDepth(9999);
-            this._menuBtn.gfx.setAlpha(1);
+            this._menuBtn.gfx.setDepth(9999).setAlpha(1);
         }
         if (this._menuBtn?.zone) {
             this._menuBtn.zone.setDepth(10000);
         }
-
-        // Debug rectangle jaune (temporaire, 4 secondes) pour vérifier la zone
-        const debugRect = this.scene.add.rectangle(W - 65, 75, 100, 100, 0xffff00, 0.25)
-            .setScrollFactor(0)
-            .setDepth(9998);
-        this.scene.time.delayedCall(4000, () => { if (debugRect) debugRect.destroy(); });
-
     }
 
     _makeButton(x, y, r, color, icon, onDown, stopProp = false) {
@@ -119,7 +110,6 @@ class MobileControls {
         const JOY_RIGHT = W * 0.44;
         const JOY_TOP   = H * 0.48;
 
-        // On enlève les anciens listeners pour éviter les doublons
         this.scene.input.off('pointerdown');
         this.scene.input.off('pointermove');
         this.scene.input.off('pointerup');
@@ -148,7 +138,6 @@ class MobileControls {
         });
     }
 
-
     _updateJoystick(ptr) {
         const dx = ptr.x - this._joyOrigin.x;
         const dy = ptr.y - this._joyOrigin.y;
@@ -174,29 +163,18 @@ class MobileControls {
         };
     }
 
+    /** Méthode appelée à chaque rotation de l'écran */
     resize(newW, newH) {
         this._W = newW;
         this._H = newH;
 
-        // 1. Destruction de tout ce qui existe
+        // Destruction complète
         if (this._castBtn?.zone) this._castBtn.zone.destroy();
         if (this._menuBtn?.zone) this._menuBtn.zone.destroy();
         if (this._joyBase) this._joyBase.destroy();
         if (this._joyKnob) this._joyKnob.destroy();
 
-        // 2. Recréation complète du joystick graphique
+        // Recréation complète
         this._buildJoystickGfx();
-
-        // 3. Recréation des boutons
         this._buildButtons(newW, newH);
-
-        // 4. Ré-enregistrement des événements pointer avec les nouvelles dimensions
-        this._registerPointerEvents(newW, newH);
-
-        console.log(`[MobileControls] Resize COMPLET appliqué → ${newW} × ${newH}`);
-    }
-
-   
-}
-
-window.MobileControls = MobileControls; // pour compatibilité avec index.html
+        this._registerPointerEvents(newW, newH
