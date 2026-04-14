@@ -42,8 +42,9 @@ class MobileControls {
         this._joyKnob.strokeCircle(0, 0, JOY_KNOB_RADIUS);
     }
 
+
     _buildButtons(W, H) {
-        // Cast button (bas droite)
+        // Cast button
         this._castBtn = this._makeButton(
             W - 80, H - 100, 52, 0x5533bb, 'Cast',
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:cast'); }
@@ -55,9 +56,9 @@ class MobileControls {
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:nextspell'); }
         );
 
-        // ==================== MENU BUTTON - VERSION DEBUG VISIBLE ====================
+        // ==================== MENU BUTTON - VERSION ULTRA ROBUSTE ====================
         this._menuBtn = this._makeButton(
-            W - 65, 75, 42, 0xff0000, '≡',        // Rouge vif + plus grand pour tester
+            W - 65, 75, 42, 0xff0000, '≡',     // Rouge vif + plus gros
             (ptr) => { 
                 if (ptr.id !== this._joyPointerId) {
                     this.scene.events.emit('mobile:menu');
@@ -67,22 +68,22 @@ class MobileControls {
             true
         );
 
-        // Force maximale de visibilité
-        if (this._menuBtn && this._menuBtn.gfx) {
-            this._menuBtn.gfx.setDepth(999);
-            this._menuBtn.gfx.setAlpha(1.0);
+        // Force maximale (après création)
+        if (this._menuBtn?.gfx) {
+            this._menuBtn.gfx.setDepth(9999);
+            this._menuBtn.gfx.setAlpha(1);
         }
-        if (this._menuBtn && this._menuBtn.zone) {
-            this._menuBtn.zone.setDepth(1000);
+        if (this._menuBtn?.zone) {
+            this._menuBtn.zone.setDepth(10000);
         }
 
-        // Debug visuel temporaire : petit rectangle autour du bouton
-        const debugRect = this.scene.add.rectangle(W - 65, 75, 90, 90, 0xffff00, 0.3)
+        // Debug rectangle jaune (temporaire, 4 secondes) pour vérifier la zone
+        const debugRect = this.scene.add.rectangle(W - 65, 75, 100, 100, 0xffff00, 0.25)
             .setScrollFactor(0)
-            .setDepth(998);
-        this.scene.time.delayedCall(3000, () => debugRect.destroy()); // disparaît après 3s
-    } 
-    
+            .setDepth(9998);
+        this.scene.time.delayedCall(4000, () => { if (debugRect) debugRect.destroy(); });
+
+    }
 
     _makeButton(x, y, r, color, icon, onDown, stopProp = false) {
         const gfx = this.scene.add.graphics().setScrollFactor(0).setDepth(210);
