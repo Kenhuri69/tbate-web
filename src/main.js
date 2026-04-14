@@ -3,27 +3,19 @@
  *
  * Configure Phaser et lance le jeu.
  * activePointers: 3 active le support multi-touch (joystick + boutons simultanés).
- * Scale.FIT : adapte le canvas à l'écran tout en conservant le ratio 16:9.
- *   → Les coordonnées Phaser restent en 1280×720 indépendamment de la taille CSS.
- *   → Les zones interactives (boutons, joystick) sont correctement mappées sur mobile.
+ * Scale.ENVELOP : remplit tout l'écran mobile, Phaser corrige le mapping touch.
  */
 
 const config = {
     type  : Phaser.AUTO,
     width : 1280,
     height: 720,
-
-    // ── Responsive / Mobile ──────────────────────────────────────────
-    // FIT  : réduit ou agrandit le canvas pour tenir dans la fenêtre
-    //        sans déformer. Phaser corrige automatiquement le mapping
-    //        des événements pointeur (touch / mouse) → coordonnées jeu.
     scale : {
-        mode      : Phaser.Scale.FIT,
+        mode      : Phaser.Scale.ENVELOP,   // remplit l'écran, rogne si nécessaire
         autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-
     input : {
-        activePointers: 3, // multi-touch : joystick + 2 boutons simultanés
+        activePointers: 3,
     },
     physics: {
         default: 'arcade',
