@@ -42,8 +42,9 @@ class MobileControls {
         this._joyKnob.strokeCircle(0, 0, JOY_KNOB_RADIUS);
     }
 
+     
     _buildButtons(W, H) {
-        // Cast
+        // Cast button (bas droite)
         this._castBtn = this._makeButton(
             W - 80, H - 100, 52, 0x5533bb, 'Cast',
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:cast'); }
@@ -55,12 +56,25 @@ class MobileControls {
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:nextspell'); }
         );
 
-        // Menu (haut droite) - depth élevé
+        // MENU BUTTON - Version plus visible et robuste
         this._menuBtn = this._makeButton(
-            W - 50, 50, 32, 0x2a1a55, '≡',
-            (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:menu'); },
+            W - 60, 60, 35, 0x2a1a55, '≡',           // légèrement plus grand et décalé
+            (ptr) => { 
+                if (ptr.id !== this._joyPointerId) {
+                    this.scene.events.emit('mobile:menu');
+                    console.log('[MobileControls] Menu button clicked !');
+                }
+            },
             true
         );
+
+        // Force le bouton menu à être au-dessus de tout
+        if (this._menuBtn && this._menuBtn.gfx) {
+            this._menuBtn.gfx.setDepth(300);
+        }
+        if (this._menuBtn && this._menuBtn.zone) {
+            this._menuBtn.zone.setDepth(305);
+        }
     }
 
     _makeButton(x, y, r, color, icon, onDown, stopProp = false) {
