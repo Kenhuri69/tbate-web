@@ -1,5 +1,5 @@
 /**
- * MOBILE CONTROLS - Version finale avec support rotation écran
+ * MOBILE CONTROLS - Version stable avec rotation écran
  */
 
 const JOY_MAX_RADIUS  = 58;
@@ -23,6 +23,8 @@ class MobileControls {
         this._buildJoystickGfx();
         this._buildButtons(W, H);
         this._registerPointerEvents(W, H);
+
+        console.log('[MobileControls] Initialisé avec dimensions', W, '×', H);
     }
 
     get isActive() { return this._joyPointerId !== null; }
@@ -43,19 +45,19 @@ class MobileControls {
     }
 
     _buildButtons(W, H) {
-        // Cast button (bas droite)
+        // Cast
         this._castBtn = this._makeButton(
             W - 80, H - 100, 52, 0x5533bb, 'Cast',
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:cast'); }
         );
 
-        // Next Spell
+        // Next
         this._makeButton(
             W - 162, H - 58, 32, 0x1a3a66, 'Next',
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:nextspell'); }
         );
 
-        // Menu button (haut droite) - rouge pour bien voir
+        // Menu (rouge vif)
         this._menuBtn = this._makeButton(
             W - 65, 75, 42, 0xff0000, '≡',
             (ptr) => { 
@@ -67,13 +69,8 @@ class MobileControls {
             true
         );
 
-        // Force visibilité maximale
-        if (this._menuBtn?.gfx) {
-            this._menuBtn.gfx.setDepth(9999).setAlpha(1);
-        }
-        if (this._menuBtn?.zone) {
-            this._menuBtn.zone.setDepth(10000);
-        }
+        if (this._menuBtn?.gfx) this._menuBtn.gfx.setDepth(9999).setAlpha(1);
+        if (this._menuBtn?.zone) this._menuBtn.zone.setDepth(10000);
     }
 
     _makeButton(x, y, r, color, icon, onDown, stopProp = false) {
@@ -97,11 +94,6 @@ class MobileControls {
             if (stopProp) event.stopPropagation();
             onDown(ptr);
         });
-
-        zone.on('pointerover', () => gfx.setAlpha(1.0));
-        zone.on('pointerout',  () => gfx.setAlpha(1.0));
-        zone.on('pointerdown', () => gfx.setAlpha(0.65));
-        zone.on('pointerup',   () => gfx.setAlpha(1.0));
 
         return { gfx, zone };
     }
@@ -163,7 +155,7 @@ class MobileControls {
         };
     }
 
-    /** Méthode appelée à chaque rotation de l'écran */
+    /** Resize appelé à chaque rotation */
     resize(newW, newH) {
         this._W = newW;
         this._H = newH;
@@ -177,4 +169,10 @@ class MobileControls {
         // Recréation complète
         this._buildJoystickGfx();
         this._buildButtons(newW, newH);
-        this._registerPointerEvents(newW, newH
+        this._registerPointerEvents(newW, newH);
+
+        console.log(`[MobileControls] Resize COMPLET → ${newW} × ${newH}`);
+    }
+}
+
+window.MobileControls = MobileControls;
