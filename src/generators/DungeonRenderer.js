@@ -351,14 +351,22 @@ class DungeonRenderer {
                     run++;
                 } else if (run > 0) {
                     // Un seul corps pour la bandelette [startCol .. startCol+run)
+                    // bx/by = coin supérieur gauche en pixels
                     const bw = run * TS;
-                    const bx = startCol * TS + bw / 2;
-                    const by = row * TS + TS / 2;
+                    const bx = startCol * TS;          // bord gauche
+                    const by = row * TS;               // bord haut
 
-                    const s = this._wallGroup.create(bx, by, 'wall');
-                    s.setVisible(false);
-                    s.body.setSize(bw, TS);
-                    s.body.reset(bx, by);
+                    // On utilise un Rectangle invisible plutôt qu'un sprite
+                    // pour éviter le décalage d'origine 32×32 du sprite 'wall'
+                    const rect = this.scene.add.rectangle(
+                        bx + bw / 2,   // centre X
+                        by + TS / 2,   // centre Y
+                        bw, TS,
+                    ).setVisible(false);
+
+                    this.scene.physics.add.existing(rect, true); // statique
+                    this._wallGroup.add(rect);
+
                     run = 0;
                 }
             }

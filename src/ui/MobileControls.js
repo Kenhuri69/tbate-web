@@ -101,21 +101,25 @@ class MobileControls {
             },
         );
 
-        // ≡ Menu / Stats (haut droite) — fond plus visible
+        // ≡ Menu / Stats (haut droite)
+        // IMPORTANT : depth 220 > depth SpellSystem (pointerdown global)
+        // → stopPropagation évite un cast accidentel lors de l'ouverture du menu
         this._makeButton(
-            W - 44, 44, 28, 0x2a1a55, '≡',
+            W - 50, 50, 32, 0x2a1a55, '≡',
             (ptr) => {
                 if (ptr.id === this._joyPointerId) return;
                 this.scene.events.emit('mobile:menu');
             },
+            true, // stopPropagation
         );
     }
 
     /**
      * Crée un bouton circulaire interactif.
+     * @param {boolean} [stopProp=false] - stoppe la propagation du pointerdown
      * @returns {{ gfx, zone }}
      */
-    _makeButton(x, y, r, color, icon, onDown) {
+    _makeButton(x, y, r, color, icon, onDown, stopProp = false) {
         const gfx = this.scene.add.graphics()
             .setScrollFactor(0).setDepth(210);
         gfx.fillStyle(color, 0.82);
@@ -129,9 +133,21 @@ class MobileControls {
             color     : '#ffffff',
         }).setOrigin(0.5).setScrollFactor(0).setDepth(211);
 
-        const zone = this.scene.add.zone(x, y, r * 2, r * 2)
-            .setScrollFactor(0).setDepth(212).setInteractive();
-        zone.on('pointerdown', onDown);
+        // Zone interactive centrée sur (x, y) avec hitArea circulaire précise
+        const zone = this.scene.add.zone(x, y, r * 2.4, r * 2.4)
+            .setScrollFactor(0).setDepth(215)
+            .setInteractive({ useHandCursor: true });
+
+        zone.on('pointerdown', (ptr, lx, ly, event) => {
+            if (stopProp) event.stopPropagation();
+            onDown(ptr);
+        });
+
+        // Feedback visuel : légère teinte au survol / press
+        zone.on('pointerover',  () => gfx.setAlpha(1.0));
+        zone.on('pointerout',   () => gfx.setAlpha(1.0));
+        zone.on('pointerdown',  () => gfx.setAlpha(0.65));
+        zone.on('pointerup',    () => gfx.setAlpha(1.0));
 
         return { gfx, zone };
     }
