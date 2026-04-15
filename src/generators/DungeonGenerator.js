@@ -368,6 +368,7 @@ class DungeonGenerator {
             if (!def?.storyHook) return;
 
             switch (r.type) {
+                case 'start': r.hookId = 'start_zone';            break; 
                 case 'boss' : r.hookId = 'floor_1_boss';            break;
                 case 'exit' : r.hookId = 'floor_1_exit';            break;
                 case 'story': r.hookId = `floor_1_story_${storyIdx++}`; break;
