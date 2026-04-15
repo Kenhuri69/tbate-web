@@ -1,0 +1,39 @@
+{
+  "conversations": [
+    {
+      "name": "Arthur (pensée)",
+      "text": "Mon père récite une incantation depuis une bonne minute. Je me penche en avant, impatient. Un tremblement de terre ? Un golem de pierre ?",
+      "side": "left"
+    },
+    {
+      "name": "Reynolds Leywin",
+      "text": "Regarde, Arthur ! La magie de la terre !",
+      "side": "right"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Trois rochers de la taille d'un adulte ont émergé du sol... et frappé un arbre. C'est tout.",
+      "side": "left"
+    },
+    {
+      "name": "Reynolds Leywin",
+      "text": "Ton papa est impressionnant, non ?",
+      "side": "right"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Non. Mais avec ses gantelets de fer, c'est une autre histoire. Des mouvements rapides, fluides, dévastateurs. Dans mon ancien monde, il serait un soldat d'élite.",
+      "side": "left"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Ici, le pouvoir est roi. Les dirigeants doivent être les plus forts pour représenter leur peuple. Ce monde n'est pas si différent du mien... mais le mana change tout.",
+      "side": "left"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Chaque jour, je travaille mon nouveau corps. Contrôle des membres, coordination. Lentement, mais sûrement. Je serai prêt.",
+      "side": "left"
+    }
+  ]
+}
