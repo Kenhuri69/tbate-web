@@ -232,12 +232,17 @@ class GameScene extends Phaser.Scene {
     }
 
     _setupCamera() {
-        const cam    = this.cameras.main;
-        const zoom   = window.innerWidth < 900 ? 1.0 : 1.5;
+        const cam  = this.cameras.main;
+        const zoom = window.innerWidth < 900 ? 1.0 : 1.5;
+        const env  = DUNGEON_ENVIRONMENTS[DUNGEON_CONFIG.currentFloor] ?? DUNGEON_ENVIRONMENTS[3];
+
+        // Couleur de fond adaptée à l'environnement
+        const bgColor = env.floorColor ?? '#000000';
+
         cam.setBounds(0, 0, this.dungeonRenderer.mapPixelWidth, this.dungeonRenderer.mapPixelHeight)
            .startFollow(this.player.sprite, true, 1, 1)
            .setZoom(zoom)
-           .setBackgroundColor('#000000');
+           .setBackgroundColor(bgColor);
         this.time.delayedCall(16, () => cam.setLerp(0.10, 0.10));
     }
 }
