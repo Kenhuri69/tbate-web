@@ -7,7 +7,16 @@ class GameScene extends Phaser.Scene {
 
     constructor() { super({ key: 'GameScene' }); }
 
-    preload() {}
+    preload() {
+        // Précharger les JSONs de dialogue (hookIds connus du donjon BSP)
+        StoryManager.preloadDialogues(this, [
+            'floor_1_boss',
+            'floor_1_exit',
+            'floor_1_story_1',
+            'floor_1_story_2',
+            'start_zone',
+        ]);
+    }
 
     create() {
         // 1. Textures
