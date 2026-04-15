@@ -57,6 +57,12 @@ class MobileControls {
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:nextspell'); }
         );
 
+        // Méditation
+        this._makeButton(
+            W - 162, H - 120, 32, 0x330066, 'M',
+            (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:meditate'); }
+        );
+
         // Menu (rouge vif)
         this._menuBtn = this._makeButton(
             W - 65, 75, 42, 0xff0000, '≡',
