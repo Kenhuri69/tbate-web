@@ -1,0 +1,34 @@
+{
+  "conversations": [
+    {
+      "name": "Arthur (pensée)",
+      "text": "Ma mère m'a emmené en ville — Ashber. Plutôt une glorieuse avant-poste qu'une vraie ville. Des tentes, un chemin de terre, des marchands de toutes sortes.",
+      "side": "left"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Armes. Armures. Et des pierres brillantes. Tout le monde est armé comme si c'était un accessoire de luxe. J'ai vu un homme porter une hache de guerre plus grande que lui.",
+      "side": "left"
+    },
+    {
+      "name": "Alice Leywin",
+      "text": "Tu vois, Arthur ? C'est le marché d'Ashber. Un jour, tu courras dans ces allées tout seul.",
+      "side": "right"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Elle me parle pour que j'apprenne la langue plus vite. Attentionnée. Mais mon corps de nourrisson a décidé de tomber endormi à mi-chemin. Ce corps inutile.",
+      "side": "left"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Ce monde fonctionne simplement : cuivre, argent, or. Le pouvoir et la richesse définissent le rang. Comme mon ancien monde, sans la technologie.",
+      "side": "left"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "La différence : ici, la magie remplace la technologie. Et tout le monde semble avoir accès à une forme de mana.",
+      "side": "left"
+    }
+  ]
+}
