@@ -1,38 +1,63 @@
 {
   "conversations": [
     {
-      "name": "Arthur Leywin",
-      "text": "…Cette lumière… Je suis mort. King Grey est mort. Pourtant… je respire.",
+      "name": "Arthur (pensée)",
+      "text": "Je n'ai jamais cru à cette histoire de lumière au bout du tunnel. Pourtant, c'est exactement ce que je vois.",
       "side": "left"
     },
     {
-      "name": "Arthur Leywin",
-      "text": "Mes mains… si petites. Un corps d’enfant ? Non… un bébé ?! C’est une mauvaise plaisanterie.",
+      "name": "Arthur (pensée)",
+      "text": "La dernière chose dont je me souviens, c'est de m'être endormi dans ma chambre royale. Suis-je mort ? Assassiné ?",
       "side": "left"
     },
     {
-      "name": "Voix intérieure",
-      "text": "Tu as demandé une seconde chance. La voilà. Un nouveau monde. Une nouvelle vie.",
+      "name": "Arthur (pensée)",
+      "text": "Cette lumière m'attire. Le voyage semble durer une éternité. J'attendais presque un chœur d'anges...",
+      "side": "left"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Au lieu de ça : du rouge. Des sons. Et quelque chose qui ressemble à... un cri. Mon cri.",
+      "side": "left"
+    },
+    {
+      "name": "Docteur Brolin",
+      "text": "Félicitations Monsieur et Madame. C'est un garçon en parfaite santé.",
       "side": "right"
     },
     {
-      "name": "Arthur Leywin",
-      "text": "Un monde où la magie existe… Je sens le mana qui circule autour de moi. C’est différent. Plus pur.",
+      "name": "Arthur (pensée)",
+      "text": "...Attends. Je viens d'être... né ? Je suis un bébé ? Moi, le Roi Gris ?",
       "side": "left"
     },
     {
-      "name": "Arthur Leywin",
-      "text": "Dans ma vie précédente, j’ai régné par la peur et la solitude. Cette fois… je ferai les choses différemment.",
+      "name": "Arthur (pensée)",
+      "text": "Bon. Analysons la situation de façon rationnelle. Je comprends la langue. C'est déjà un bon signe.",
       "side": "left"
     },
     {
-      "name": "Voix intérieure",
-      "text": "Alors lève-toi, Réincarné. Le continent de Dicathen t’attend. Ton voyage ne fait que commencer.",
+      "name": "Reynolds Leywin",
+      "text": "Salut petit Art, c'est papa ! Tu peux dire dada ?",
       "side": "right"
     },
     {
-      "name": "Arthur Leywin",
-      "text": "Dicathen… Très bien. Cette fois, je protégerai ceux qui me sont chers. Et je deviendrai assez fort pour ne plus jamais perdre.",
+      "name": "Alice Leywin",
+      "text": "Chéri... il vient juste de naître.",
+      "side": "right"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Mon père a l'air d'un idiot souriant. Mais ma mère... des cheveux auburn, des yeux marron doux. Elle dégage quelque chose de maternel et chaleureux.",
+      "side": "left"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Ce monde est différent du mien. Pas d'électricité, pas d'hôpital. Je suis né à la lumière de bougies, sur un lit de paille.",
+      "side": "left"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Mais ma mère a soigné une égratignure avec de la magie. Avec ses mains. Une lumière pure et douce. Où diable suis-je ?",
       "side": "left"
     }
   ]
