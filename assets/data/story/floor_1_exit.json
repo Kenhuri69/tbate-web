@@ -1,0 +1,34 @@
+{
+  "conversations": [
+    {
+      "name": "Arthur (pensée)",
+      "text": "Je sens le mana converger. Plus pur qu'avant. Mon noyau... il réagit.",
+      "side": "left"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Dans mon ancienne vie, je n'avais pas accès à la magie. Seulement le ki, la technique, la force brute. Mais ici, c'est différent.",
+      "side": "left"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Ce monde offre quelque chose que je n'ai jamais eu. Une chance de devenir vraiment fort. Pas fort comme un roi... fort comme une légende.",
+      "side": "left"
+    },
+    {
+      "name": "Alice Leywin",
+      "text": "Arthur ? Tout va bien ? Tu sembles... différent.",
+      "side": "right"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Elle a raison. Je change. Mon Noyau de Mana s'éveille. C'est le début de tout.",
+      "side": "left"
+    },
+    {
+      "name": "Arthur (pensée)",
+      "text": "Dicathen... Je suis là. Et cette fois, je ne mourrai pas dans un lit. Je choisirai ma propre fin.",
+      "side": "left"
+    }
+  ]
+}
