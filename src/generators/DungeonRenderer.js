@@ -90,25 +90,27 @@ class DungeonRenderer {
     // ──────────────────────────────────────────────────────────────
 
     _renderRoomOverlays() {
-        const TS = this.map.tileSize;
+        const TS  = this.map.tileSize;
+        const env = DUNGEON_ENVIRONMENTS[DUNGEON_CONFIG.currentFloor] ?? DUNGEON_ENVIRONMENTS[3];
 
         for (const room of this.map.rooms) {
             const def = ROOM_TYPES[room.type];
             if (!def || room.type === 'normal') continue;
 
-            // Rectangle coloré semi-transparent sur le sol de la salle
+            // Couleur de la salle selon l'environnement ou la définition par défaut
+            const roomColor = env.roomColors?.[room.type] ?? def.color;
+
             this.scene.add.rectangle(
                 room.bounds.x * TS,
                 room.bounds.y * TS,
                 room.bounds.w * TS,
                 room.bounds.h * TS,
-                def.color,
-                0.13,
+                roomColor,
+                0.14,
             ).setOrigin(0).setDepth(1);
 
-            // Bordure fine
             const gfx = this.scene.add.graphics().setDepth(2);
-            gfx.lineStyle(1, def.color, 0.45);
+            gfx.lineStyle(1, roomColor, 0.50);
             gfx.strokeRect(
                 room.bounds.x * TS,
                 room.bounds.y * TS,
