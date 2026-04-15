@@ -40,7 +40,7 @@ class HUD {
 
     _build() {
         const X = 10, Y = 10;
-        const W = 300, H = 148;
+        const W = 300, H = 162;
         const D = 100;
 
         this.scene.add.rectangle(X, Y, W, H, 0x000000, 0.75)
@@ -92,6 +92,12 @@ class HUD {
         this._txtBlocked = this.scene.add.text(X + 12, Y + 130, '', {
             fontFamily: 'monospace', fontSize: '9px', color: '#ff4444',
         }).setScrollFactor(0).setDepth(D + 1).setVisible(false);
+
+        // — Étage courant —
+        const env = DUNGEON_ENVIRONMENTS[DUNGEON_CONFIG.currentFloor] ?? DUNGEON_ENVIRONMENTS[3];
+        this.scene.add.text(X + 12, Y + H - 28, `⬡ ${env.label}`, {
+            fontFamily: 'monospace', fontSize: '9px', color: '#664422',
+        }).setScrollFactor(0).setDepth(D + 1);
 
         // — Contrôles —
         this.scene.add.text(X + 12, Y + H - 12, 'ZQSD · Clic=sort · M=méditer · P=stats', {
