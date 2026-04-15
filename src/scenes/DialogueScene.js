@@ -1,74 +1,119 @@
-export class DialogueScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'DialogueScene' });
-    }
+/**
+ * DIALOGUE SCENE — Overlay de dialogues TBATE
+ *
+ * Lancée en overlay par StoryManager via scene.launch('DialogueScene', data).
+ * Affiche les lignes une à une avec effet typewriter.
+ * Tap/clic/Espace/Entrée → ligne suivante.
+ *
+ * data attendu :
+ *   { conversations: [{name, text, side}], onComplete: fn }
+ *
+ * NE PAS utiliser export/import — exposé en global via window.
+ */
+class DialogueScene extends Phaser.Scene {
+
+    constructor() { super({ key: 'DialogueScene' }); }
 
     init(data) {
-        this.dialogueData = data.conversations; // Le tableau d'objets du JSON
-        this.currentIndex = 0;
-        this.onComplete = data.onComplete;
+        this.dialogueData  = data.conversations ?? [];
+        this.currentIndex  = 0;
+        this.onComplete    = data.onComplete ?? null;
+        this.isTyping      = false;
+        this._typeEvent    = null;
     }
 
     create() {
-        const { width, height } = this.scale;
-        
-        // 1. Fond de la boîte de dialogue (Semi-transparent)
-        const boxHeight = 150;
-        this.bg = this.add.rectangle(width/2, height - boxHeight/2 - 20, width - 40, boxHeight, 0x000000, 0.8)
-            .setStrokeStyle(2, 0x3498db);
+        const W = this.scale.width;
+        const H = this.scale.height;
 
-        // 2. Zone de texte
-        this.nameText = this.add.text(40, height - boxHeight - 10, '', { font: 'bold 20px Arial', fill: '#3498db' });
-        this.contentText = this.add.text(50, height - boxHeight + 20, '', { font: '18px Arial', fill: '#ffffff', wordWrap: { width: width - 100 } });
+        const BOX_H  = 160;
+        const BOX_Y  = H - BOX_H - 16;
+        const PAD    = 20;
 
-        // 3. Portraits (Espaces réservés)
-        this.leftPortrait = this.add.image(100, height - boxHeight - 80, 'portraits').setVisible(false);
-        this.rightPortrait = this.add.image(width - 100, height - boxHeight - 80, 'portraits').setVisible(false);
+        // Fond semi-transparent
+        this._bg = this.add.rectangle(W / 2, BOX_Y + BOX_H / 2, W - 32, BOX_H, 0x000000, 0.88)
+            .setStrokeStyle(2, 0x5533aa);
 
-        // Interaction pour passer au texte suivant
-        this.input.on('pointerdown', () => this.nextLine());
-        
-        this.displayLine();
+        // Nom du personnage
+        this._nameBox = this.add.rectangle(PAD + 80, BOX_Y - 14, 160, 28, 0x1a0a3a, 0.95)
+            .setStrokeStyle(1, 0x5533aa);
+        this._txtName = this.add.text(PAD + 80, BOX_Y - 14, '', {
+            fontFamily: 'monospace', fontSize: '13px',
+            color: '#aa88ff', stroke: '#000', strokeThickness: 2,
+        }).setOrigin(0.5);
+
+        // Texte principal
+        this._txtContent = this.add.text(PAD + 8, BOX_Y + 16, '', {
+            fontFamily: 'monospace', fontSize: '13px', color: '#ffffff',
+            wordWrap: { width: W - 64 }, lineSpacing: 4,
+        });
+
+        // Indicateur "continuer"
+        this._txtContinue = this.add.text(W - PAD - 8, BOX_Y + BOX_H - 18, '▼', {
+            fontFamily: 'monospace', fontSize: '14px', color: '#5533aa',
+        }).setOrigin(1, 1).setVisible(false);
+
+        this.tweens.add({
+            targets: this._txtContinue, alpha: 0.2,
+            duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        });
+
+        // Input : tap, clic, espace, entrée
+        this.input.on('pointerdown', () => this._advance());
+        this.input.keyboard.on('keydown-SPACE', () => this._advance());
+        this.input.keyboard.on('keydown-ENTER', () => this._advance());
+
+        this._showLine();
     }
 
-    displayLine() {
+    // ----------------------------------------------------------------
+
+    _showLine() {
+        if (this.currentIndex >= this.dialogueData.length) {
+            this._finish();
+            return;
+        }
         const line = this.dialogueData[this.currentIndex];
-        this.nameText.setText(line.name);
-        
-        // Gestion des portraits
-        this.leftPortrait.setVisible(line.side === 'left');
-        this.rightPortrait.setVisible(line.side === 'right');
-        // this.leftPortrait.setFrame(line.portrait); // Si tu as un Atlas
-
-        // Effet Typewriter
-        this.typewriteText(line.text);
+        this._txtName.setText(line.name ?? '');
+        this._txtContent.setText('');
+        this._txtContinue.setVisible(false);
+        this._typeText(line.text ?? '');
     }
 
-    typewriteText(text) {
-        let i = 0;
-        this.contentText.setText('');
+    _typeText(text) {
+        if (this._typeEvent) { this._typeEvent.remove(); this._typeEvent = null; }
         this.isTyping = true;
-        
-        this.time.addEvent({
+        let i = 0;
+        this._typeEvent = this.time.addEvent({
             callback: () => {
-                this.contentText.text += text[i];
+                this._txtContent.text += text[i];
                 i++;
-                if (i === text.length) this.isTyping = false;
+                if (i >= text.length) {
+                    this.isTyping = false;
+                    this._txtContinue.setVisible(true);
+                }
             },
             repeat: text.length - 1,
-            delay: 30
+            delay: 28,
         });
     }
 
-    nextLine() {
-        if (this.isTyping) return; // Empêche de skip trop vite
-
-        this.currentIndex++;
-        if (this.currentIndex < this.dialogueData.length) {
-            this.displayLine();
-        } else {
-            this.scene.stop();
-            if (this.onComplete) this.onComplete();
+    _advance() {
+        if (this.isTyping) {
+            // Affiche tout le texte immédiatement
+            if (this._typeEvent) { this._typeEvent.remove(); this._typeEvent = null; }
+            this.isTyping = false;
+            const line = this.dialogueData[this.currentIndex];
+            this._txtContent.setText(line.text ?? '');
+            this._txtContinue.setVisible(true);
+            return;
         }
+        this.currentIndex++;
+        this._showLine();
+    }
+
+    _finish() {
+        this.scene.stop();
+        if (this.onComplete) this.onComplete();
     }
 }
