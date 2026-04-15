@@ -72,6 +72,9 @@ class GameScene extends Phaser.Scene {
         // 10. Trigger zones
         this._setupTriggerZones();
 
+        // === STORY MANAGER GÉNÉRIQUE ===
+        this.storyManager = new StoryManager(this);
+
         // 11. Contrôles mobiles
         this.mobileControls = new MobileControls(this);
         this.scale.on('resize', (gs) => {
