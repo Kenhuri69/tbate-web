@@ -30,7 +30,7 @@ class StoryManager {
 
     _loadAndLaunchDialogue(hookId) {
         const jsonKey = `dialogue_${hookId}`;
-        const jsonPath = `assets/dialogues/${hookId}.json`;
+        const jsonPath = `assets/data/story/${hookId}.json`;
 
         // Chargement du JSON
         this.scene.load.json(jsonKey, jsonPath);
