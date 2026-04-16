@@ -45,36 +45,46 @@ class MobileControls {
     }
 
     _buildButtons(W, H) {
+        const isPortrait = H > W;
+
+        // Positions adaptées selon l'orientation
+        // Portrait  : boutons en bas à droite, menu en haut à droite
+        // Paysage   : même disposition, légèrement différent
+        const castX   = W - 80;
+        const castY   = H - (isPortrait ? 120 : 100);
+        const nextX   = W - (isPortrait ? 80 : 162);
+        const nextY   = H - (isPortrait ? 200 : 58);
+        const meditX  = W - (isPortrait ? 160 : 162);
+        const meditY  = H - (isPortrait ? 200 : 120);
+        const menuX   = W - 65;
+        const menuY   = isPortrait ? 90 : 75;
+
         // Cast
         this._castBtn = this._makeButton(
-            W - 80, H - 100, 52, 0x5533bb, 'Cast',
+            castX, castY, 52, 0x5533bb, '⚡',
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:cast'); }
         );
 
-        // Next
+        // Sort suivant
         this._makeButton(
-            W - 162, H - 58, 32, 0x1a3a66, 'Next',
+            nextX, nextY, 30, 0x1a3a66, '↻',
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:nextspell'); }
         );
 
         // Méditation
         this._makeButton(
-            W - 162, H - 120, 32, 0x330066, 'M',
+            meditX, meditY, 30, 0x330066, '🧘',
             (ptr) => { if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:meditate'); }
         );
 
-        // Menu (rouge vif)
+        // Menu ≡
         this._menuBtn = this._makeButton(
-            W - 65, 75, 42, 0xff0000, '≡',
-            (ptr) => { 
-                if (ptr.id !== this._joyPointerId) {
-                    this.scene.events.emit('mobile:menu');
-                    console.log('[MobileControls] MENU CLICKED !');
-                }
+            menuX, menuY, 38, 0x220033, '≡',
+            (ptr) => {
+                if (ptr.id !== this._joyPointerId) this.scene.events.emit('mobile:menu');
             },
             true
         );
-
         if (this._menuBtn?.gfx) this._menuBtn.gfx.setDepth(9999).setAlpha(1);
         if (this._menuBtn?.zone) this._menuBtn.zone.setDepth(10000);
     }
@@ -105,8 +115,10 @@ class MobileControls {
     }
 
     _registerPointerEvents(W, H) {
-        const JOY_RIGHT = W * 0.44;
-        const JOY_TOP   = H * 0.48;
+        // En portrait, la zone joystick descend plus bas (ratio différent)
+        const isPortrait = H > W;
+        const JOY_RIGHT  = W * (isPortrait ? 0.50 : 0.44);
+        const JOY_TOP    = H * (isPortrait ? 0.55 : 0.48);
 
         this.scene.input.off('pointerdown');
         this.scene.input.off('pointermove');
