@@ -347,12 +347,15 @@ class DungeonRenderer {
     /**
      * Crée les corps physiques des murs + DEBUG VISUEL (rouge 5 secondes)
      */
+
     _buildWallBodies() {
         const { tiles, width: W, height: H, tileSize: TS } = this.map;
         this._wallGroup = this.scene.physics.add.staticGroup();
 
         const startX = this.map.startPos?.x || (W * TS / 2);
         const startY = this.map.startPos?.y || (H * TS / 2);
+
+        let wallCount = 0;
 
         for (let row = 0; row < H; row++) {
             let run = 0, startCol = 0;
@@ -368,25 +371,19 @@ class DungeonRenderer {
                     const cx = startCol * TS + bw / 2;
                     const cy = row * TS + TS / 2;
 
-                    // Skip les murs trop proches du spawn (salle de départ)
-                    if (Math.hypot(cx - startX, cy - startY) < 110) {
-                        run = 0;
-                        continue;
-                    }
-
                     // Création du corps physique
-                    const rect = this.scene.add.rectangle(cx, cy, bw, TS)
-                        .setVisible(false);
-
+                    const rect = this.scene.add.rectangle(cx, cy, bw, TS).setVisible(false);
                     this.scene.physics.add.existing(rect, true);
                     this._wallGroup.add(rect);
+                    wallCount++;
 
-                    // === DEBUG VISUEL : rectangle rouge semi-transparent ===
-                    const debugRect = this.scene.add.rectangle(cx, cy, bw, TS, 0xff0000, 0.35)
-                        .setDepth(50);
+                    // DEBUG ROUGE FORT - Toujours créé, plus visible
+                    const debugRect = this.scene.add.rectangle(cx, cy, bw, TS, 0xff0000, 0.45)
+                        .setDepth(150)
+                        .setStrokeStyle(3, 0xffffff, 0.8);
 
-                    // Disparaît après 5 secondes
-                    this.scene.time.delayedCall(5000, () => {
+                    // Disparaît après 8 secondes pour avoir le temps de voir
+                    this.scene.time.delayedCall(8000, () => {
                         if (debugRect && debugRect.active) debugRect.destroy();
                     });
 
@@ -395,9 +392,10 @@ class DungeonRenderer {
             }
         }
 
-        console.log(`[DungeonRenderer] WallGroup créé avec ${this._wallGroup.getLength()} corps physiques`);
+        console.log(`[DungeonRenderer] WallGroup créé avec ${wallCount} corps physiques`);
     }
-
+    
+                     
     // ──────────────────────────────────────────────────────────────
     // Debug
     // ──────────────────────────────────────────────────────────────
