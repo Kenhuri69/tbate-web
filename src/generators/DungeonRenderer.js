@@ -59,10 +59,8 @@ class DungeonRenderer {
         this._renderRoomOverlays();
         this._renderMarkers();
         this._buildWallBodies();
-        this._renderTiles();
         this._buildTriggerZones();
         this._buildSpawnPoints();
-        
         if (this.debug) this._renderDebugLabels();
     }
 
@@ -342,39 +340,48 @@ class DungeonRenderer {
      * Les sprites sont invisibles : le RenderTexture gère déjà le visuel.
      */
 
-_buildWallBodies() {
+    _buildWallBodies() {
         const { tiles, width: W, height: H, tileSize: TS } = this.map;
         this._wallGroup = this.scene.physics.add.staticGroup();
 
-        // Fusion par ligne : tuiles WALL consécutives → 1 seul corps physique.
-        // Résultat : corps physique parfaitement aligné sur le visuel RenderTexture.
-        // La RenderTexture dessine col*TS, row*TS (coin haut-gauche).
-        // Le body correspondant est centré à col*TS + bw/2, row*TS + TS/2.
+        // La RenderTexture dessine chaque tuile à (col*TS, row*TS) en haut-gauche.
+        // Les corps physiques doivent occuper exactement la même zone pixel.
+        //
+        // On fusionne les tuiles WALL consécutives sur chaque ligne en un seul
+        // corps rectangulaire — même position, même taille que les textures.
+        //
+        // staticGroup.create(cx, cy, key) :
+        //   - cx, cy = centre du sprite (origin 0.5)
+        //   - setDisplaySize(bw, TS) + refreshBody() synchronise le body à bw×TS
+        //   - résultat : body couvre [startCol*TS .. (startCol+run)*TS] × [row*TS .. (row+1)*TS]
+        //   = exactement la zone dessinée par rt.draw('wall', col*TS, row*TS)
+
         for (let row = 0; row < H; row++) {
-            let run = 0, startCol = 0;
+            let run = 0;
+            let startCol = 0;
+
             for (let col = 0; col <= W; col++) {
                 const isWall = col < W && tiles[row][col] === TILE.WALL;
+
                 if (isWall) {
                     if (run === 0) startCol = col;
                     run++;
                 } else if (run > 0) {
-                    const bw = run * TS;
-                    const cx = startCol * TS + bw / 2;
-                    const cy = row * TS + TS / 2;
+                    const bw = run * TS;                    // largeur en pixels
+                    const cx = startCol * TS + bw / 2;     // centre X
+                    const cy = row * TS + TS / 2;           // centre Y
+
                     const s = this._wallGroup.create(cx, cy, 'wall');
                     s.setVisible(false)
                      .setDisplaySize(bw, TS)
                      .refreshBody();
+
                     run = 0;
                 }
             }
         }
     }
-    
-                    
-     
-    
-                     
+
     // ──────────────────────────────────────────────────────────────
     // Debug
     // ──────────────────────────────────────────────────────────────
