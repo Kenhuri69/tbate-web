@@ -368,23 +368,29 @@ class DungeonRenderer {
                     run++;
                 } else if (run > 0) {
                     const bw = run * TS;
-                    const cx = startCol * TS + bw / 2;
-                    const cy = row * TS + TS / 2;
+                    // Alignement plus strict sur la grille (évite les demi-tuiles)
+                    const cx = (startCol * TS) + (bw / 2);
+                    const cy = (row * TS) + (TS / 2);
 
-                    // Création du corps physique
+                    // Skip seulement les murs très proches du spawn
+                    if (Math.hypot(cx - startX, cy - startY) < 90) {
+                        run = 0;
+                        continue;
+                    }
+
+                    // Corps physique
                     const rect = this.scene.add.rectangle(cx, cy, bw, TS).setVisible(false);
                     this.scene.physics.add.existing(rect, true);
                     this._wallGroup.add(rect);
                     wallCount++;
 
-                    // DEBUG ROUGE FORT - Toujours créé, plus visible
+                    // Debug rouge très visible
                     const debugRect = this.scene.add.rectangle(cx, cy, bw, TS, 0xff0000, 0.45)
                         .setDepth(150)
-                        .setStrokeStyle(3, 0xffffff, 0.8);
+                        .setStrokeStyle(4, 0xffffff, 0.9);
 
-                    // Disparaît après 8 secondes pour avoir le temps de voir
                     this.scene.time.delayedCall(8000, () => {
-                        if (debugRect && debugRect.active) debugRect.destroy();
+                        if (debugRect?.active) debugRect.destroy();
                     });
 
                     run = 0;
@@ -394,6 +400,7 @@ class DungeonRenderer {
 
         console.log(`[DungeonRenderer] WallGroup créé avec ${wallCount} corps physiques`);
     }
+     
     
                      
     // ──────────────────────────────────────────────────────────────
