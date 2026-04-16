@@ -1,404 +1,408 @@
 /**
- * DUNGEON RENDERER
+ * DUNGEON GENERATOR — Algorithme BSP pur
  *
- * Traduit un DungeonMap (données pures) en objets Phaser visibles.
+ * Produit un objet DungeonMap sans aucune dépendance à Phaser.
+ * Le rendu est délégué à DungeonRenderer.
  *
- * Responsabilités :
- *   - Afficher les tuiles sol / mur (RenderTexture = 1 seul draw-call)
- *   - Overlays colorés par type de salle
- *   - Marqueurs visuels (icône entrée, portail sortie)
- *   - Étiquettes de debug des salles (désactivables)
- *   - Zones physiques de déclenchement pour les hooks narratifs
+ * Algorithme :
+ *   1. Partitionnement BSP récursif de la grille
+ *   2. Placement d'une salle dans chaque feuille
+ *   3. Connexion des salles sœurs par des couloirs en L
+ *   4. Génération du tableau 2D de tuiles (FLOOR / WALL / VOID)
+ *   5. Attribution des types de salles
+ *   6. Attribution des hooks narratifs
  *
- * API publique :
- *   renderer.render()            → construit les objets Phaser
- *   renderer.getEnemySpawns()    → [{x,y,roomType,count}]
- *   renderer.getTriggerZones()   → Phaser.Zone[] avec .hookId et .roomId
- *   renderer.getWallGroup()      → Phaser.Physics.Arcade.StaticGroup (murs physiques)
- *   renderer.mapPixelWidth       → pour la caméra / physics.world.setBounds
- *   renderer.mapPixelHeight
+ * Sortie :
+ *   {
+ *     width, height, tileSize,
+ *     tiles    : TILE[][]      — tableau [row][col]
+ *     rooms    : Room[]        — données de chaque salle
+ *     startPos : {x,y}         — position pixel du joueur au départ
+ *     seed     : number|null
+ *   }
  *
- * Événements émis (via scene.events) :
- *   'room:entered' { roomId, hookId, roomType } → GameScene / futur StorySystem
+ * TODO : ajouter pathfinding A* entre salles pour la mini-map.
+ * TODO : ajouter un générateur de seed lisible (mots) pour le partage.
+ * TODO : permettre plusieurs étages (paramètre floor: 1..N).
  *
- * TODO : minimap — générer une RenderTexture basse résolution.
- * TODO : FOG OF WAR — masquer les salles non visitées.
- *
- * Dépend de (globals) : TILE, ROOM_TYPES, DUNGEON_CONFIG
+ * Dépend de (globals) : DUNGEON_CONFIG, TILE, ROOM_TYPES
  */
-class DungeonRenderer {
+
+// ────────────────────────────────────────────────────────────────
+// Nœud BSP interne
+// ────────────────────────────────────────────────────────────────
+class BSPNode {
 
     /**
-     * @param {Phaser.Scene} scene
-     * @param {DungeonMap}   map   - produit par DungeonGenerator.generate()
-     * @param {boolean}      [debug=false]
+     * @param {number} x      - colonne de départ (tuiles)
+     * @param {number} y      - ligne de départ (tuiles)
+     * @param {number} w      - largeur (tuiles)
+     * @param {number} h      - hauteur (tuiles)
+     * @param {number} depth  - profondeur dans l'arbre
      */
-    constructor(scene, map, debug = false) {
-        this.scene = scene;
-        this.map   = map;
-        this.debug = debug;
+    constructor(x, y, w, h, depth = 0) {
+        this.x     = x; this.y = y;
+        this.w     = w; this.h = h;
+        this.depth = depth;
+        this.left  = null;   // BSPNode
+        this.right = null;   // BSPNode
+        this.room  = null;   // Room (feuilles seulement)
+    }
 
-        this.mapPixelWidth  = map.width  * map.tileSize;
-        this.mapPixelHeight = map.height * map.tileSize;
+    get isLeaf()     { return !this.left && !this.right; }
 
-        this._triggerZones  = [];   // zones physiques narratives
-        this._spawnPoints   = [];   // positions de spawn ennemis
-        this._wallGroup     = null; // StaticGroup pour les collisions murs
+    /** Feuille aléatoire dans ce sous-arbre. */
+    get randomLeaf() {
+        if (this.isLeaf) return this;
+        return Math.random() < 0.5 ? this.left.randomLeaf : this.right.randomLeaf;
+    }
+
+    /** Toutes les feuilles. */
+    get leaves() {
+        if (this.isLeaf) return [this];
+        return [...this.left.leaves, ...this.right.leaves];
+    }
+
+    /**
+     * Tente de diviser ce nœud.
+     * @param {number} minPartW
+     * @param {number} minPartH
+     * @param {function} rng - () => [0..1]
+     * @returns {boolean}
+     */
+    trySplit(minPartW, minPartH, rng) {
+        if (!this.isLeaf) return false;
+
+        const canH = this.h >= minPartH * 2;
+        const canV = this.w >= minPartW * 2;
+        if (!canH && !canV) return false;
+
+        // Préférer couper dans la dimension la plus longue
+        const splitHoriz = canH && canV
+            ? this.h > this.w * 1.2
+            : canH;
+
+        if (splitHoriz) {
+            const min = minPartH;
+            const max = this.h - minPartH;
+            const at  = min + Math.floor(rng() * (max - min));
+            this.left  = new BSPNode(this.x,      this.y,      this.w, at,           this.depth + 1);
+            this.right = new BSPNode(this.x,      this.y + at, this.w, this.h - at,  this.depth + 1);
+        } else {
+            const min = minPartW;
+            const max = this.w - minPartW;
+            const at  = min + Math.floor(rng() * (max - min));
+            this.left  = new BSPNode(this.x,      this.y, at,           this.h, this.depth + 1);
+            this.right = new BSPNode(this.x + at, this.y, this.w - at,  this.h, this.depth + 1);
+        }
+        return true;
+    }
+}
+
+// ────────────────────────────────────────────────────────────────
+// Générateur principal
+// ────────────────────────────────────────────────────────────────
+class DungeonGenerator {
+
+    /** @param {object} [overrides] - surcharge partielle de DUNGEON_CONFIG */
+    constructor(overrides = {}) {
+        this._cfg = { ...DUNGEON_CONFIG, ...overrides };
+    }
+
+    /**
+     * Génère un donjon complet.
+     * @param {number|null} seed - graine pour la reproductibilité (null = aléatoire)
+     * @returns {DungeonMap}
+     */
+    generate(seed = null) {
+        const cfg = this._cfg;
+
+        // RNG (reproductible si seed fourni)
+        this._rng = seed !== null ? this._seededRNG(seed) : Math.random.bind(Math);
+
+        // 1. Grille vide
+        const tiles = this._grid(cfg.mapWidth, cfg.mapHeight, TILE.VOID);
+
+        // 2. Arbre BSP
+        const root = new BSPNode(1, 1, cfg.mapWidth - 2, cfg.mapHeight - 2, 0);
+        this._splitRecursive(root, 0);
+
+        // 3. Salle dans chaque feuille
+        const roomList = [];
+        this._placeRooms(root, roomList);
+
+        // 4. Peinture des salles sur la grille
+        roomList.forEach(r => this._paintRoom(r, tiles));
+
+        // 5. Couloirs (connexion récursive des sœurs BSP)
+        this._connectSiblings(root, tiles);
+
+        // 6. Génération des murs
+        this._generateWalls(tiles, cfg.mapWidth, cfg.mapHeight);
+
+        // 7. Attribution des types + hooks
+        this._assignTypes(roomList);
+
+        return {
+            width   : cfg.mapWidth,
+            height  : cfg.mapHeight,
+            tileSize: cfg.tileSize,
+            tiles,
+            rooms   : roomList,
+            startPos: this._startPixelPos(roomList, cfg.tileSize),
+            seed,
+        };
     }
 
     // ──────────────────────────────────────────────────────────────
-    // Rendu principal
+    // Étapes de génération
     // ──────────────────────────────────────────────────────────────
 
-    /**
-     * Construit tous les objets Phaser.
-     * Doit être appelé une seule fois dans create().
-     */
-    render() {
-        this._renderTiles();
-        this._renderRoomOverlays();
-        this._renderMarkers();
-        this._buildWallBodies();
-        this._buildTriggerZones();
-        this._buildSpawnPoints();
-        if (this.debug) this._renderDebugLabels();
+    /** Divise récursivement jusqu'à maxDepth ou impossibilité. */
+    _splitRecursive(node, depth) {
+        const cfg = this._cfg;
+        if (depth >= cfg.maxDepth) return;
+        if (!node.trySplit(cfg.minPartW, cfg.minPartH, this._rng)) return;
+        this._splitRecursive(node.left,  depth + 1);
+        this._splitRecursive(node.right, depth + 1);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // Tuiles — RenderTexture (1 draw-call pour tout le donjon)
-    // ──────────────────────────────────────────────────────────────
+    /** Crée une salle dans chaque feuille, l'ajoute à roomList. */
+    _placeRooms(node, roomList) {
+        if (!node.isLeaf) {
+            this._placeRooms(node.left,  roomList);
+            this._placeRooms(node.right, roomList);
+            return;
+        }
 
-    _renderTiles() {
-        const { tiles, width: W, height: H, tileSize: TS } = this.map;
+        const cfg     = this._cfg;
+        const pad     = cfg.roomPadding;
+        const maxRW   = node.w - pad * 2;
+        const maxRH   = node.h - pad * 2;
 
-        // Une seule RenderTexture pour tout le sol + murs → perf maximale
-        const rt = this.scene.add
-            .renderTexture(0, 0, W * TS, H * TS)
-            .setDepth(0);
+        if (maxRW < cfg.minRoomW || maxRH < cfg.minRoomH) return; // partition trop petite
 
+        const rw = cfg.minRoomW + Math.floor(this._rng() * (maxRW - cfg.minRoomW + 1));
+        const rh = cfg.minRoomH + Math.floor(this._rng() * (maxRH - cfg.minRoomH + 1));
+        const rx = node.x + pad + Math.floor(this._rng() * (maxRW - rw + 1));
+        const ry = node.y + pad + Math.floor(this._rng() * (maxRH - rh + 1));
+
+        const room = {
+            id      : `room_${roomList.length}`,
+            bounds  : { x: rx, y: ry, w: rw, h: rh },
+            center  : { x: Math.floor(rx + rw / 2), y: Math.floor(ry + rh / 2) },
+            type    : null,           // assigné dans _assignTypes
+            depth   : node.depth,
+            hookId  : null,           // hook narratif (pour l'histoire)
+            content : null,           // données de contenu (roomContent.js)
+        };
+
+        node.room = room;
+        roomList.push(room);
+    }
+
+    /** Peint les tuiles de sol d'une salle. */
+    _paintRoom(room, tiles) {
+        const { x, y, w, h } = room.bounds;
+        for (let row = y; row < y + h; row++)
+            for (let col = x; col < x + w; col++)
+                tiles[row][col] = TILE.FLOOR;
+    }
+
+    /**
+     * Connecte récursivement les salles sœurs par un couloir en L.
+     * Remonte l'arbre BSP pour garantir que toutes les salles sont accessibles.
+     */
+    _connectSiblings(node, tiles) {
+        if (node.isLeaf) return;
+
+        const leafA = node.left.randomLeaf;
+        const leafB = node.right.randomLeaf;
+
+        if (leafA.room && leafB.room) {
+            this._drawCorridor(
+                leafA.room.center,
+                leafB.room.center,
+                tiles,
+            );
+        }
+
+        this._connectSiblings(node.left,  tiles);
+        this._connectSiblings(node.right, tiles);
+    }
+
+    /**
+     * Couloir en L entre deux centres.
+     * Alterne aléatoirement H→V ou V→H.
+     */
+    _drawCorridor(a, b, tiles) {
+        const w = this._cfg.corridorW;
+
+        if (this._rng() < 0.5) {
+            this._hLine(tiles, a.x, b.x, a.y, w);
+            this._vLine(tiles, a.y, b.y, b.x, w);
+        } else {
+            this._vLine(tiles, a.y, b.y, a.x, w);
+            this._hLine(tiles, a.x, b.x, b.y, w);
+        }
+    }
+
+    _hLine(tiles, x1, x2, y, width) {
+        const [lo, hi] = x1 < x2 ? [x1, x2] : [x2, x1];
+        const off = Math.floor(width / 2);
+        for (let x = lo; x <= hi; x++)
+            for (let dy = -off; dy < width - off; dy++)
+                this._setFloor(tiles, x, y + dy);
+    }
+
+    _vLine(tiles, y1, y2, x, width) {
+        const [lo, hi] = y1 < y2 ? [y1, y2] : [y2, y1];
+        const off = Math.floor(width / 2);
+        for (let y = lo; y <= hi; y++)
+            for (let dx = -off; dx < width - off; dx++)
+                this._setFloor(tiles, x + dx, y);
+    }
+
+    _setFloor(tiles, col, row) {
+        const { mapWidth: W, mapHeight: H } = this._cfg;
+        if (col > 0 && col < W - 1 && row > 0 && row < H - 1)
+            tiles[row][col] = TILE.FLOOR;
+    }
+
+    /**
+     * Génère les murs : toute tuile VOID adjacente (8-dir) à un FLOOR devient WALL.
+     */
+    _generateWalls(tiles, W, H) {
         for (let row = 0; row < H; row++) {
             for (let col = 0; col < W; col++) {
-                const t = tiles[row][col];
-                if (t === TILE.VOID) continue;
-                rt.draw(t === TILE.FLOOR ? 'tile' : 'wall', col * TS, row * TS);
+                if (tiles[row][col] !== TILE.VOID) continue;
+                if (this._hasFloorNeighbor(tiles, col, row, W, H))
+                    tiles[row][col] = TILE.WALL;
             }
         }
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // Overlays colorés par type de salle
-    // ──────────────────────────────────────────────────────────────
-
-    _renderRoomOverlays() {
-        const TS  = this.map.tileSize;
-        const env = DUNGEON_ENVIRONMENTS[DUNGEON_CONFIG.currentFloor] ?? DUNGEON_ENVIRONMENTS[3];
-
-        for (const room of this.map.rooms) {
-            const def = ROOM_TYPES[room.type];
-            if (!def || room.type === 'normal') continue;
-
-            // Couleur de la salle selon l'environnement ou la définition par défaut
-            const roomColor = env.roomColors?.[room.type] ?? def.color;
-
-            this.scene.add.rectangle(
-                room.bounds.x * TS,
-                room.bounds.y * TS,
-                room.bounds.w * TS,
-                room.bounds.h * TS,
-                roomColor,
-                0.14,
-            ).setOrigin(0).setDepth(1);
-
-            const gfx = this.scene.add.graphics().setDepth(2);
-            gfx.lineStyle(1, roomColor, 0.50);
-            gfx.strokeRect(
-                room.bounds.x * TS,
-                room.bounds.y * TS,
-                room.bounds.w * TS,
-                room.bounds.h * TS,
-            );
-        }
+    _hasFloorNeighbor(tiles, col, row, W, H) {
+        for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                const nx = col + dx, ny = row + dy;
+                if (nx >= 0 && nx < W && ny >= 0 && ny < H && tiles[ny][nx] === TILE.FLOOR)
+                    return true;
+            }
+        return false;
     }
 
     // ──────────────────────────────────────────────────────────────
-    // Marqueurs visuels (entrée, sortie, trésor, boss)
+    // Attribution des types et hooks
     // ──────────────────────────────────────────────────────────────
 
-    _renderMarkers() {
-        const TS = this.map.tileSize;
+    /**
+     * Attribue un type à chaque salle et un hookId aux salles spéciales.
+     *
+     * Logique :
+     *   start    = salle la plus "haute-gauche" (premier point d'entrée)
+     *   exit     = salle la plus éloignée du start
+     *   boss     = 2ème plus éloignée
+     *   story    = 1-2 salles intermédiaires
+     *   treasure = 1 salle aléatoire
+     *   normal   = toutes les autres
+     */
+    _assignTypes(rooms) {
+        if (rooms.length === 0) return;
 
-        for (const room of this.map.rooms) {
-            const cx = room.center.x * TS;
-            const cy = room.center.y * TS;
+        // Trier par distance euclidienne depuis la première salle
+        const anchor = rooms[0];
+        const sorted = [...rooms].sort((a, b) =>
+            Math.hypot(a.center.x - anchor.center.x, a.center.y - anchor.center.y) -
+            Math.hypot(b.center.x - anchor.center.x, b.center.y - anchor.center.y)
+        );
 
-            switch (room.type) {
-                case 'start':
-                    this._markerEntrance(cx, cy);
-                    break;
+        const n = sorted.length;
 
-                case 'exit':
-                    this._markerExit(cx, cy);
-                    break;
+        sorted[0].type = 'start';
+        sorted[n - 1].type = 'exit';
+        if (n > 2) sorted[n - 2].type = 'boss';
 
-                case 'boss':
-                    this._markerBoss(cx, cy);
-                    break;
-
-                case 'treasure':
-                    this._markerTreasure(cx, cy);
-                    break;
-
-                case 'story':
-                    this._markerStory(cx, cy);
-                    break;
+        // Story rooms (1 ou 2 selon la taille du donjon)
+        const storyCount = n > 6 ? 2 : 1;
+        let storyAssigned = 0;
+        for (let i = Math.floor(n * 0.35); i < Math.floor(n * 0.65) && storyAssigned < storyCount; i++) {
+            if (!sorted[i].type) {
+                sorted[i].type = 'story';
+                storyAssigned++;
             }
         }
-    }
 
-    /** Rune verte d'entrée — tourne lentement. */
-    _markerEntrance(cx, cy) {
-        const gfx = this.scene.add.graphics().setDepth(3);
-        gfx.lineStyle(2, 0x22ff66, 0.9);
-        gfx.strokeCircle(cx, cy, 16);
-        gfx.lineStyle(1, 0x22ff66, 0.5);
-        gfx.strokeCircle(cx, cy, 10);
-
-        this._pulseGraphic(gfx, 0.6, 1.0, 1800);
-
-        this.scene.add.text(cx, cy - 24, '⬇  ENTRÉE', {
-            fontFamily: 'monospace', fontSize: '9px', color: '#44ff88',
-        }).setOrigin(0.5, 1).setDepth(3);
-    }
-
-    /** Portail bleu de sortie — pulse rapidement. */
-    _markerExit(cx, cy) {
-        const gfx = this.scene.add.graphics().setDepth(3);
-        gfx.lineStyle(2, 0x44ddff, 0.9);
-        gfx.strokeCircle(cx, cy, 18);
-
-        const inner = this.scene.add.graphics().setDepth(3);
-        inner.fillStyle(0x44ddff, 0.2);
-        inner.fillCircle(cx, cy, 14);
-
-        this._pulseGraphic(inner, 0.1, 0.5, 900);
-
-        this.scene.add.text(cx, cy - 26, '⬆  SORTIE', {
-            fontFamily: 'monospace', fontSize: '9px', color: '#44ddff',
-        }).setOrigin(0.5, 1).setDepth(3);
-    }
-
-    /** Crâne rouge pour la salle de boss. */
-    _markerBoss(cx, cy) {
-        const gfx = this.scene.add.graphics().setDepth(3);
-        gfx.lineStyle(2, 0xff2200, 0.8);
-        for (let i = 0; i < 4; i++) {
-            const a = (Math.PI / 2) * i;
-            gfx.lineBetween(
-                cx + Math.cos(a) * 10, cy + Math.sin(a) * 10,
-                cx + Math.cos(a) * 20, cy + Math.sin(a) * 20,
-            );
+        // Treasure room
+        for (let i = 1; i < n - 1; i++) {
+            if (!sorted[i].type) {
+                sorted[i].type = 'treasure';
+                break;
+            }
         }
-        gfx.strokeCircle(cx, cy, 8);
-        this._pulseGraphic(gfx, 0.3, 1.0, 700);
+
+        // Normal : toutes les salles non assignées
+        rooms.forEach(r => { if (!r.type) r.type = 'normal'; });
+
+        // Attribution des hookIds narratifs
+        this._assignHooks(rooms);
+
+        // Lier le template de contenu
+        rooms.forEach(r => {
+            r.content = ROOM_TEMPLATES[r.type] ?? ROOM_TEMPLATES.normal;
+        });
     }
 
-    /** Étoile dorée pour le trésor. */
-    _markerTreasure(cx, cy) {
-        const gfx = this.scene.add.graphics().setDepth(3);
-        gfx.fillStyle(0xddaa00, 0.9);
-        for (let i = 0; i < 5; i++) {
-            const a = (Math.PI * 2 / 5) * i - Math.PI / 2;
-            const x = cx + Math.cos(a) * 12;
-            const y = cy + Math.sin(a) * 12;
-            gfx.fillRect(x - 2, y - 2, 4, 4);
-        }
-    }
+    /**
+     * Attribue les identifiants de hooks narratifs.
+     * Format : 'floor_1_<type>[_N]'
+     *
+     * Ces IDs sont la clé dans STORY_CONTENT (roomContent.js).
+     * Quand l'histoire est fournie, on peuple STORY_CONTENT sans rien changer ici.
+     */
+    _assignHooks(rooms) {
+        let storyIdx = 1;
+        rooms.forEach(r => {
+            const def = ROOM_TYPES[r.type];
+            if (!def?.storyHook) return;
 
-    /** Glyphe bleu pour les salles d'histoire. */
-    _markerStory(cx, cy) {
-        const gfx = this.scene.add.graphics().setDepth(3);
-        gfx.lineStyle(1, 0x6688ff, 0.7);
-        gfx.strokeCircle(cx, cy, 12);
-        gfx.fillStyle(0x6688ff, 0.25);
-        gfx.fillCircle(cx, cy, 12);
-
-        this.scene.add.text(cx, cy, '!', {
-            fontFamily: 'monospace', fontSize: '16px',
-            color: '#aabbff', stroke: '#000', strokeThickness: 2,
-        }).setOrigin(0.5).setDepth(3);
-    }
-
-    /** Anime l'opacité d'un Graphics en boucle. */
-    _pulseGraphic(gfx, alphaFrom, alphaTo, duration) {
-        this.scene.tweens.add({
-            targets  : gfx,
-            alpha    : { from: alphaFrom, to: alphaTo },
-            duration,
-            yoyo     : true,
-            repeat   : -1,
-            ease     : 'Sine.easeInOut',
+            switch (r.type) {
+                case 'start': r.hookId = 'start_zone';            break; 
+                case 'boss' : r.hookId = 'floor_1_boss';            break;
+                case 'exit' : r.hookId = 'floor_1_exit';            break;
+                case 'story': r.hookId = `floor_1_story_${storyIdx++}`; break;
+            }
         });
     }
 
     // ──────────────────────────────────────────────────────────────
-    // Zones physiques de déclenchement (hooks narratifs)
+    // Utilitaires
     // ──────────────────────────────────────────────────────────────
+
+    /** Grille 2D initialisée à une valeur. */
+    _grid(w, h, val) {
+        return Array.from({ length: h }, () => new Array(w).fill(val));
+    }
+
+    /** Position pixel du centre de la salle de départ. */
+    _startPixelPos(rooms, tileSize) {
+        const start = rooms.find(r => r.type === 'start') ?? rooms[0];
+        return {
+            x: start.center.x * tileSize,
+            y: start.center.y * tileSize,
+        };
+    }
 
     /**
-     * Crée une zone Phaser statique sur chaque salle avec un hookId.
-     * GameScene connecte ensuite le joueur à ces zones.
-     *
-     * Événement : scene.events.emit('room:entered', { roomId, hookId, roomType })
+     * LCG rapide pour RNG reproductible.
+     * https://en.wikipedia.org/wiki/Linear_congruential_generator
      */
-    _buildTriggerZones() {
-        const TS = this.map.tileSize;
-
-        for (const room of this.map.rooms) {
-            if (!room.hookId) continue;
-
-            const zone = this.scene.add.zone(
-                (room.bounds.x + room.bounds.w * 0.5) * TS,
-                (room.bounds.y + room.bounds.h * 0.5) * TS,
-                room.bounds.w * TS,
-                room.bounds.h * TS,
-            );
-
-            // Overlap arcade : la Zone a besoin d'un corps physique MAIS
-            // on le met en isSensor pour qu'il ne bloque PAS le joueur.
-            this.scene.physics.add.existing(zone, true);
-            zone.body.isSensor = true; // traverse sans bloquer
-
-            zone.roomId   = room.id;
-            zone.hookId   = room.hookId;
-            zone.roomType = room.type;
-            zone._fired   = false;
-
-            this._triggerZones.push(zone);
-        }
+    _seededRNG(seed) {
+        let s = seed | 0;
+        return () => {
+            s = (Math.imul(1664525, s) + 1013904223) | 0;
+            return (s >>> 0) / 0x100000000;
+        };
     }
-
-    // ──────────────────────────────────────────────────────────────
-    // Spawn des ennemis
-    // ──────────────────────────────────────────────────────────────
-
-    /**
-     * Calcule les points de spawn ennemis selon le template de chaque salle.
-     * Ne crée PAS les ennemis — GameScene s'en charge.
-     *
-     * @returns {{ x, y, type, roomType, xpMultiplier }[]}
-     */
-    _buildSpawnPoints() {
-        const TS  = this.map.tileSize;
-        const cfg = DUNGEON_CONFIG;
-
-        for (const room of this.map.rooms) {
-            const tpl = room.content;
-            if (!tpl || !tpl.spawnTable.length) continue;
-
-            const count = tpl.enemyCount.min +
-                Math.floor(Math.random() * (tpl.enemyCount.max - tpl.enemyCount.min + 1));
-
-            for (let i = 0; i < count; i++) {
-                // Position aléatoire à l'intérieur de la salle (avec marge)
-                const margin = 1.5;
-                const ex = (room.bounds.x + margin + Math.random() * (room.bounds.w - margin * 2)) * TS;
-                const ey = (room.bounds.y + margin + Math.random() * (room.bounds.h - margin * 2)) * TS;
-
-                // Sélection du type via table de poids
-                const type = this._weightedPick(tpl.spawnTable);
-
-                this._spawnPoints.push({
-                    x           : ex,
-                    y           : ey,
-                    type,
-                    roomType    : room.type,
-                    xpMultiplier: tpl.xpMultiplier,
-                });
-            }
-        }
-    }
-
-    _weightedPick(table) {
-        const total  = table.reduce((s, e) => s + e.weight, 0);
-        let   thresh = Math.random() * total;
-        for (const entry of table) {
-            thresh -= entry.weight;
-            if (thresh <= 0) return entry.type;
-        }
-        return table[table.length - 1].type;
-    }
-
-    // ──────────────────────────────────────────────────────────────
-    // Corps physiques des murs (collisions joueur / ennemis / projectiles)
-    // ──────────────────────────────────────────────────────────────
-
-    /**
-     * Crée un StaticGroup Arcade avec un corps par tuile WALL.
-     * Fusionne les tuiles consécutives sur chaque ligne en un seul rectangle
-     * pour réduire le nombre de corps physiques (~80 % moins que tile par tile).
-     *
-     * Les sprites sont invisibles : le RenderTexture gère déjà le visuel.
-     */
-
-_buildWallBodies() {
-        const { tiles, width: W, height: H, tileSize: TS } = this.map;
-        this._wallGroup = this.scene.physics.add.staticGroup();
-
-        // Fusion par ligne : tuiles WALL consécutives → 1 seul corps physique.
-        // Résultat : corps physique parfaitement aligné sur le visuel RenderTexture.
-        // La RenderTexture dessine col*TS, row*TS (coin haut-gauche).
-        // Le body correspondant est centré à col*TS + bw/2, row*TS + TS/2.
-        for (let row = 0; row < H; row++) {
-            let run = 0, startCol = 0;
-            for (let col = 0; col <= W; col++) {
-                const isWall = col < W && tiles[row][col] === TILE.WALL;
-                if (isWall) {
-                    if (run === 0) startCol = col;
-                    run++;
-                } else if (run > 0) {
-                    const bw = run * TS;
-                    const cx = startCol * TS + bw / 2;
-                    const cy = row * TS + TS / 2;
-                    const s = this._wallGroup.create(cx, cy, 'wall');
-                    s.setVisible(false)
-                     .setDisplaySize(bw, TS)
-                     .refreshBody();
-                    run = 0;
-                }
-            }
-        }
-    }
-    
-                    
-     
-    
-                     
-    // ──────────────────────────────────────────────────────────────
-    // Debug
-    // ──────────────────────────────────────────────────────────────
-
-    _renderDebugLabels() {
-        const TS = this.map.tileSize;
-        for (const room of this.map.rooms) {
-            const cx = room.center.x * TS;
-            const cy = room.center.y * TS;
-            this.scene.add.text(cx, cy + 14,
-                `${room.id}\n[${ROOM_TYPES[room.type]?.label ?? room.type}]`,
-                { fontFamily: 'monospace', fontSize: '8px', color: '#556677', align: 'center' },
-            ).setOrigin(0.5, 0).setDepth(4);
-        }
-    }
-
-    // ──────────────────────────────────────────────────────────────
-    // API publique
-    // ──────────────────────────────────────────────────────────────
-
-    /** @returns {{ x, y, type, roomType, xpMultiplier }[]} */
-    getEnemySpawns() { return this._spawnPoints; }
-
-    /** @returns {Phaser.GameObjects.Zone[]} */
-    getTriggerZones() { return this._triggerZones; }
-
-    /** @returns {Phaser.Physics.Arcade.StaticGroup} */
-    getWallGroup() { return this._wallGroup; }
 }
