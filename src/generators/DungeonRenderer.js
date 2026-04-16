@@ -340,66 +340,46 @@ class DungeonRenderer {
      * Les sprites sont invisibles : le RenderTexture gère déjà le visuel.
      */
 
-
-    /**
-     * Crée les corps physiques des murs + DEBUG VISUEL (rouge 5 secondes)
-     */
-    /**
-     * Crée les corps physiques des murs + DEBUG VISUEL (rouge 5 secondes)
-     */
-
-    _buildWallBodies() {
+_buildWallBodies() {
         const { tiles, width: W, height: H, tileSize: TS } = this.map;
         this._wallGroup = this.scene.physics.add.staticGroup();
 
-        const startX = this.map.startPos?.x || (W * TS / 2);
-        const startY = this.map.startPos?.y || (H * TS / 2);
+        const startX = this.map.startPos?.x || 0;
+        const startY = this.map.startPos?.y || 0;
 
         let wallCount = 0;
 
         for (let row = 0; row < H; row++) {
-            let run = 0, startCol = 0;
+            for (let col = 0; col < W; col++) {
+                if (tiles[row][col] !== TILE.WALL) continue;
 
-            for (let col = 0; col <= W; col++) {
-                const isWall = col < W && tiles[row][col] === TILE.WALL;
+                const cx = col * TS + TS / 2;
+                const cy = row * TS + TS / 2;
 
-                if (isWall) {
-                    if (run === 0) startCol = col;
-                    run++;
-                } else if (run > 0) {
-                    const bw = run * TS;
-                    // Alignement plus strict sur la grille (évite les demi-tuiles)
-                    const cx = (startCol * TS) + (bw / 2);
-                    const cy = (row * TS) + (TS / 2);
+                // Skip les murs très proches du spawn (salle de départ)
+                if (Math.hypot(cx - startX, cy - startY) < 80) continue;
 
-                    // Skip seulement les murs très proches du spawn
-                    if (Math.hypot(cx - startX, cy - startY) < 90) {
-                        run = 0;
-                        continue;
-                    }
+                // Création d'un corps par tuile (pas de fusion)
+                const rect = this.scene.add.rectangle(cx, cy, TS, TS).setVisible(false);
+                this.scene.physics.add.existing(rect, true);
+                this._wallGroup.add(rect);
+                wallCount++;
 
-                    // Corps physique
-                    const rect = this.scene.add.rectangle(cx, cy, bw, TS).setVisible(false);
-                    this.scene.physics.add.existing(rect, true);
-                    this._wallGroup.add(rect);
-                    wallCount++;
+                // Debug rouge très visible
+                const debugRect = this.scene.add.rectangle(cx, cy, TS, TS, 0xff0000, 0.5)
+                    .setDepth(150)
+                    .setStrokeStyle(3, 0xffffff, 0.8);
 
-                    // Debug rouge très visible
-                    const debugRect = this.scene.add.rectangle(cx, cy, bw, TS, 0xff0000, 0.45)
-                        .setDepth(150)
-                        .setStrokeStyle(4, 0xffffff, 0.9);
-
-                    this.scene.time.delayedCall(8000, () => {
-                        if (debugRect?.active) debugRect.destroy();
-                    });
-
-                    run = 0;
-                }
+                this.scene.time.delayedCall(8000, () => {
+                    if (debugRect && debugRect.active) debugRect.destroy();
+                });
             }
         }
 
-        console.log(`[DungeonRenderer] WallGroup créé avec ${wallCount} corps physiques`);
+        console.log(`[DungeonRenderer] WallGroup créé avec ${wallCount} corps physiques (1 par tuile)`);
     }
+    
+                    
      
     
                      
