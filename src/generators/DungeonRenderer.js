@@ -339,43 +339,64 @@ class DungeonRenderer {
      *
      * Les sprites sont invisibles : le RenderTexture gère déjà le visuel.
      */
+
+
+    /**
+     * Crée les corps physiques des murs + DEBUG VISUEL (rouge 5 secondes)
+     */
+    /**
+     * Crée les corps physiques des murs + DEBUG VISUEL (rouge 5 secondes)
+     */
     _buildWallBodies() {
-    const { tiles, width: W, height: H, tileSize: TS } = this.map;
-    this._wallGroup = this.scene.physics.add.staticGroup();
+        const { tiles, width: W, height: H, tileSize: TS } = this.map;
+        this._wallGroup = this.scene.physics.add.staticGroup();
 
-    const startX = this.map.startPos?.x || 0;
-    const startY = this.map.startPos?.y || 0;
+        const startX = this.map.startPos?.x || (W * TS / 2);
+        const startY = this.map.startPos?.y || (H * TS / 2);
 
-    for (let row = 0; row < H; row++) {
-        let run = 0, startCol = 0;
+        for (let row = 0; row < H; row++) {
+            let run = 0, startCol = 0;
 
-        for (let col = 0; col <= W; col++) {
-            const isWall = col < W && tiles[row][col] === TILE.WALL;
+            for (let col = 0; col <= W; col++) {
+                const isWall = col < W && tiles[row][col] === TILE.WALL;
 
-            if (isWall) {
-                if (run === 0) startCol = col;
-                run++;
-            } else if (run > 0) {
-                const bw = run * TS;
-                const cx = startCol * TS + bw / 2;
-                const cy = row * TS + TS / 2;
+                if (isWall) {
+                    if (run === 0) startCol = col;
+                    run++;
+                } else if (run > 0) {
+                    const bw = run * TS;
+                    const cx = startCol * TS + bw / 2;
+                    const cy = row * TS + TS / 2;
 
-                // Skip walls trop proches du point de spawn (salle de départ)
-                if (Math.hypot(cx - startX, cy - startY) < 100) {
+                    // Skip les murs trop proches du spawn (salle de départ)
+                    if (Math.hypot(cx - startX, cy - startY) < 110) {
+                        run = 0;
+                        continue;
+                    }
+
+                    // Création du corps physique
+                    const rect = this.scene.add.rectangle(cx, cy, bw, TS)
+                        .setVisible(false);
+
+                    this.scene.physics.add.existing(rect, true);
+                    this._wallGroup.add(rect);
+
+                    // === DEBUG VISUEL : rectangle rouge semi-transparent ===
+                    const debugRect = this.scene.add.rectangle(cx, cy, bw, TS, 0xff0000, 0.35)
+                        .setDepth(50);
+
+                    // Disparaît après 5 secondes
+                    this.scene.time.delayedCall(5000, () => {
+                        if (debugRect && debugRect.active) debugRect.destroy();
+                    });
+
                     run = 0;
-                    continue;
                 }
-
-                const rect = this.scene.add.rectangle(cx, cy, bw, TS).setVisible(false);
-                this.scene.physics.add.existing(rect, true);
-                this._wallGroup.add(rect);
-
-                run = 0;
             }
         }
-    }
-}
 
+        console.log(`[DungeonRenderer] WallGroup créé avec ${this._wallGroup.getLength()} corps physiques`);
+    }
 
     // ──────────────────────────────────────────────────────────────
     // Debug
