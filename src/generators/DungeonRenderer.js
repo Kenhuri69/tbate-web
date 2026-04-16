@@ -59,8 +59,10 @@ class DungeonRenderer {
         this._renderRoomOverlays();
         this._renderMarkers();
         this._buildWallBodies();
+        this._renderTiles();
         this._buildTriggerZones();
         this._buildSpawnPoints();
+        
         if (this.debug) this._renderDebugLabels();
     }
 
