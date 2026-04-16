@@ -340,34 +340,42 @@ class DungeonRenderer {
      * Les sprites sont invisibles : le RenderTexture gère déjà le visuel.
      */
     _buildWallBodies() {
-        const { tiles, width: W, height: H, tileSize: TS } = this.map;
-        this._wallGroup = this.scene.physics.add.staticGroup();
+    const { tiles, width: W, height: H, tileSize: TS } = this.map;
+    this._wallGroup = this.scene.physics.add.staticGroup();
 
-        for (let row = 0; row < H; row++) {
-            let run = 0, startCol = 0;
+    const startX = this.map.startPos?.x || 0;
+    const startY = this.map.startPos?.y || 0;
 
-            for (let col = 0; col <= W; col++) {
-                const isWall = col < W && tiles[row][col] === TILE.WALL;
+    for (let row = 0; row < H; row++) {
+        let run = 0, startCol = 0;
 
-                if (isWall) {
-                    if (run === 0) startCol = col;
-                    run++;
-                } else if (run > 0) {
-                    // Bandelette [startCol .. startCol+run)
-                    const bw  = run * TS;
-                    const cx  = startCol * TS + bw / 2;   // centre X pixel
-                    const cy  = row      * TS + TS  / 2;  // centre Y pixel
+        for (let col = 0; col <= W; col++) {
+            const isWall = col < W && tiles[row][col] === TILE.WALL;
 
-                    // Rectangle Phaser invisible : pas de texture → pas de décalage d'origine
-                    const rect = this.scene.add.rectangle(cx, cy, bw, TS).setVisible(false);
-                    this.scene.physics.add.existing(rect, true); // corps statique
-                    this._wallGroup.add(rect);
+            if (isWall) {
+                if (run === 0) startCol = col;
+                run++;
+            } else if (run > 0) {
+                const bw = run * TS;
+                const cx = startCol * TS + bw / 2;
+                const cy = row * TS + TS / 2;
 
+                // Skip walls trop proches du point de spawn (salle de départ)
+                if (Math.hypot(cx - startX, cy - startY) < 100) {
                     run = 0;
+                    continue;
                 }
+
+                const rect = this.scene.add.rectangle(cx, cy, bw, TS).setVisible(false);
+                this.scene.physics.add.existing(rect, true);
+                this._wallGroup.add(rect);
+
+                run = 0;
             }
         }
     }
+}
+
 
     // ──────────────────────────────────────────────────────────────
     // Debug
