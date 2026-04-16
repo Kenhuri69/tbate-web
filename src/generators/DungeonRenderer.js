@@ -344,39 +344,29 @@ _buildWallBodies() {
         const { tiles, width: W, height: H, tileSize: TS } = this.map;
         this._wallGroup = this.scene.physics.add.staticGroup();
 
-        const startX = this.map.startPos?.x || 0;
-        const startY = this.map.startPos?.y || 0;
-
-        let wallCount = 0;
-
+        // Fusion par ligne : tuiles WALL consécutives → 1 seul corps physique.
+        // Résultat : corps physique parfaitement aligné sur le visuel RenderTexture.
+        // La RenderTexture dessine col*TS, row*TS (coin haut-gauche).
+        // Le body correspondant est centré à col*TS + bw/2, row*TS + TS/2.
         for (let row = 0; row < H; row++) {
-            for (let col = 0; col < W; col++) {
-                if (tiles[row][col] !== TILE.WALL) continue;
-
-                const cx = col * TS + TS / 2;
-                const cy = row * TS + TS / 2;
-
-                // Skip les murs très proches du spawn (salle de départ)
-                if (Math.hypot(cx - startX, cy - startY) < 80) continue;
-
-                // Création d'un corps par tuile (pas de fusion)
-                const rect = this.scene.add.rectangle(cx, cy, TS, TS).setVisible(false);
-                this.scene.physics.add.existing(rect, true);
-                this._wallGroup.add(rect);
-                wallCount++;
-
-                // Debug rouge très visible
-                const debugRect = this.scene.add.rectangle(cx, cy, TS, TS, 0xff0000, 0.5)
-                    .setDepth(150)
-                    .setStrokeStyle(3, 0xffffff, 0.8);
-
-                this.scene.time.delayedCall(8000, () => {
-                    if (debugRect && debugRect.active) debugRect.destroy();
-                });
+            let run = 0, startCol = 0;
+            for (let col = 0; col <= W; col++) {
+                const isWall = col < W && tiles[row][col] === TILE.WALL;
+                if (isWall) {
+                    if (run === 0) startCol = col;
+                    run++;
+                } else if (run > 0) {
+                    const bw = run * TS;
+                    const cx = startCol * TS + bw / 2;
+                    const cy = row * TS + TS / 2;
+                    const s = this._wallGroup.create(cx, cy, 'wall');
+                    s.setVisible(false)
+                     .setDisplaySize(bw, TS)
+                     .refreshBody();
+                    run = 0;
+                }
             }
         }
-
-        console.log(`[DungeonRenderer] WallGroup créé avec ${wallCount} corps physiques (1 par tuile)`);
     }
     
                     
