@@ -87,6 +87,12 @@ class GameScene extends Phaser.Scene {
         // 11. Contrôles mobiles
         this.mobileControls = new MobileControls(this);
         this.scale.on('resize', (gs) => {
+            // Adapter le zoom caméra selon la nouvelle orientation
+            const isPortrait = gs.height > gs.width;
+            const zoom = isPortrait ? 0.8 : (gs.width < 900 ? 1.0 : 1.5);
+            this.cameras.main.setZoom(zoom);
+
+            // Reconstruire les contrôles mobiles
             if (this.mobileControls?.resize) this.mobileControls.resize(gs.width, gs.height);
         }, this);
 
@@ -232,8 +238,11 @@ class GameScene extends Phaser.Scene {
     }
 
     _setupCamera() {
-        const cam  = this.cameras.main;
-        const zoom = window.innerWidth < 900 ? 1.0 : 1.5;
+        const cam       = this.cameras.main;
+        const isPortrait = window.innerHeight > window.innerWidth;
+        const isMobile   = window.innerWidth < 900;
+        // Portrait : zoom réduit pour voir plus de la map verticalement
+        const zoom = isPortrait ? 0.8 : (isMobile ? 1.0 : 1.5);
         const env  = DUNGEON_ENVIRONMENTS[DUNGEON_CONFIG.currentFloor] ?? DUNGEON_ENVIRONMENTS[3];
 
         // Couleur de fond adaptée à l'environnement
