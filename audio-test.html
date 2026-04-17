@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Audio Test</title></head>
+<body style="background:#111;color:#fff;font-family:monospace;padding:20px">
+<h2>TBATE Audio Debug</h2>
+<div id="log"></div>
+<button id="btn" style="padding:20px;font-size:18px;margin:10px">TAP ICI POUR TESTER</button>
+
+<script>
+const log = (msg, color='#fff') => {
+  const d = document.getElementById('log');
+  d.innerHTML += `<div style="color:${color}">${msg}</div>`;
+};
+
+let ctx = null;
+
+document.getElementById('btn').addEventListener('click', async () => {
+  log('--- Click détecté ---', '#0f0');
+  
+  // Test 1 : Créer AudioContext
+  if (!ctx) {
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      log(`AudioContext créé — state: ${ctx.state}`, '#0f0');
+    } catch(e) {
+      log(`ERREUR création AudioContext: ${e}`, '#f00');
+      return;
+    }
+  }
+  
+  // Test 2 : Resume si suspended
+  if (ctx.state === 'suspended') {
+    log('State=suspended, tentative resume...', '#ff0');
+    try {
+      await ctx.resume();
+      log(`Après resume: ${ctx.state}`, '#0f0');
+    } catch(e) {
+      log(`ERREUR resume: ${e}`, '#f00');
+    }
+  }
+  
+  log(`State final: ${ctx.state}`, ctx.state === 'running' ? '#0f0' : '#f00');
+  
+  if (ctx.state !== 'running') {
+    log('AudioContext pas running — pas de son possible', '#f00');
+    return;
+  }
+  
+  // Test 3 : Jouer une note simple
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 440;
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.5);
+    log('Note 440Hz jouée — tu dois entendre un bip', '#0f0');
+  } catch(e) {
+    log(`ERREUR playback: ${e}`, '#f00');
+  }
+  
+  // Test 4 : Infos
+  log(`sampleRate: ${ctx.sampleRate}`, '#888');
+  log(`baseLatency: ${ctx.baseLatency?.toFixed(4) ?? 'N/A'}`, '#888');
+});
+
+log('Page chargée — clique le bouton', '#888');
+</script>
+</body>
+</html>
