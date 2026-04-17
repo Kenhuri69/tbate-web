@@ -120,32 +120,36 @@ class MobileControls {
         const JOY_RIGHT  = W * (isPortrait ? 0.50 : 0.44);
         const JOY_TOP    = H * (isPortrait ? 0.55 : 0.48);
 
-        this.scene.input.off('pointerdown');
-        this.scene.input.off('pointermove');
-        this.scene.input.off('pointerup');
+        // Retirer UNIQUEMENT les anciens listeners du joystick (pas ceux des autres systèmes)
+        if (this._onDown)  this.scene.input.off('pointerdown', this._onDown,  this);
+        if (this._onMove)  this.scene.input.off('pointermove', this._onMove,  this);
+        if (this._onUp)    this.scene.input.off('pointerup',   this._onUp,    this);
 
-        this.scene.input.on('pointerdown', (ptr) => {
+        this._onDown = (ptr) => {
             if (this._joyPointerId !== null) return;
             if (ptr.x > JOY_RIGHT || ptr.y < JOY_TOP) return;
-
             this._joyPointerId = ptr.id;
             this._joyOrigin = { x: ptr.x, y: ptr.y };
             this._joyBase.setPosition(ptr.x, ptr.y).setAlpha(1);
             this._joyKnob.setPosition(ptr.x, ptr.y).setAlpha(1);
-        });
+        };
 
-        this.scene.input.on('pointermove', (ptr) => {
+        this._onMove = (ptr) => {
             if (ptr.id !== this._joyPointerId) return;
             this._updateJoystick(ptr);
-        });
+        };
 
-        this.scene.input.on('pointerup', (ptr) => {
+        this._onUp = (ptr) => {
             if (ptr.id !== this._joyPointerId) return;
             this._joyPointerId = null;
             this._joyVector = { x: 0, y: 0 };
             this._joyBase.setAlpha(0);
             this._joyKnob.setAlpha(0);
-        });
+        };
+
+        this.scene.input.on('pointerdown', this._onDown,  this);
+        this.scene.input.on('pointermove', this._onMove,  this);
+        this.scene.input.on('pointerup',   this._onUp,    this);
     }
 
     _updateJoystick(ptr) {
