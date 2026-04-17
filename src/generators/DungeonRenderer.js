@@ -74,6 +74,7 @@ class DungeonRenderer {
         // Une seule RenderTexture pour tout le sol + murs → perf maximale
         const rt = this.scene.add
             .renderTexture(0, 0, W * TS, H * TS)
+            .setOrigin(0)
             .setDepth(0);
 
         for (let row = 0; row < H; row++) {
