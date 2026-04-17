@@ -58,8 +58,7 @@ class GameScene extends Phaser.Scene {
         this.physics.add.collider(this.player.sprite, wallGroup);
         this.physics.add.collider(this.enemyGroup,    wallGroup);
 
-        // 8. Audio + Sorts
-        this.audio       = new AudioSystem(this);
+        // 8. Sorts (audio déplacé après MobileControls)
         this.spellSystem = new SpellSystem(this, this.player.sprite);
 
         this.physics.add.overlap(
@@ -86,6 +85,9 @@ class GameScene extends Phaser.Scene {
 
         // 11. Contrôles mobiles
         this.mobileControls = new MobileControls(this);
+
+        // 11b. Audio APRÈS MobileControls pour que le listener pointerdown survive
+        this.audio = new AudioSystem(this);
         this.scale.on('resize', (gs) => {
             // Adapter le zoom caméra selon la nouvelle orientation
             const isPortrait = gs.height > gs.width;
