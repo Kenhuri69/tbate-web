@@ -66,16 +66,19 @@ class AudioSystem {
 
         this._bindEvents();
 
-        // AudioContext créé au 1er pointeur (règle autoplay des navigateurs)
-        scene.input.once('pointerdown', () => this._initContext());
-
-        // Reprendre si le navigateur suspend l'AudioContext entre les interactions
-        scene.input.on('pointerdown', () => {
+        // AudioContext créé au 1er pointeur (règle autoplay navigateur)
+        // IMPORTANT : utiliser un handler nommé pour ne pas être supprimé
+        // par MobileControls qui fait input.off() global
+        this._audioInitHandler = () => this._initContext();
+        this._audioResumeHandler = () => {
             if (this._ctx?.state === 'suspended') this._ctx.resume();
-        });
+        };
 
-        // Raccourci clavier mute
-        scene.input.keyboard?.on('keydown-M', () => this.toggleMute());
+        scene.input.once('pointerdown', this._audioInitHandler, this);
+        scene.input.on('pointerdown',   this._audioResumeHandler, this);
+
+        // Raccourci clavier mute (M) — distinct de la méditation (géré par ManaCoreSystem)
+        scene.input.keyboard?.on('keydown-COMMA', () => this.toggleMute());
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -277,11 +280,24 @@ class AudioSystem {
     _initContext() {
         if (this._ctx) return;
 
-        this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+        try {
+            this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+            console.warn('[AudioSystem] AudioContext non supporté', e);
+            return;
+        }
 
-        // Certains navigateurs créent le contexte en état "suspended" même après
-        // un geste utilisateur → forcer la reprise immédiatement
-        if (this._ctx.state === 'suspended') this._ctx.resume();
+        // Force resume() immédiat + retry après 200ms si toujours suspended
+        const doResume = () => {
+            if (this._ctx.state === 'suspended') {
+                this._ctx.resume().catch(() => {});
+                // Retry après 200ms (certains navigateurs mobiles sont lents)
+                setTimeout(() => {
+                    if (this._ctx?.state === 'suspended') this._ctx.resume().catch(() => {});
+                }, 200);
+            }
+        };
+        doResume();
 
         // Master gain
         this._master = this._ctx.createGain();
@@ -435,7 +451,7 @@ class AudioSystem {
 
         ev.on('spell:cast',       ({ spell })  => this.playSpell(spell.id));
         ev.on('enemy:died',       ()           => this.playEnemyDeath());
-        ev.on('manacore:levelup', ({ level })  => this.playManaCoreUp(level));
+        ev.on('manacore:levelup', (core)       => this.playManaCoreUp(core?.level ?? 0));
         ev.on('player:levelup',   ()           => this.playPlayerLevelUp());
         ev.on('room:entered',     ({ roomType }) => {
             this.playRoomEnter(roomType);
