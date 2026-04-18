@@ -20,8 +20,9 @@
 const PANEL_W     = 400;
 const PANEL_H     = 520;
 const PANEL_DEPTH = 300;
-const TAB_STATS   = 'stats';
-const TAB_INV     = 'inventory';
+const TAB_STATS    = 'stats';
+const TAB_INV      = 'inventory';
+const TAB_SETTINGS = 'settings';
 
 class StatsPanel {
 
@@ -37,8 +38,9 @@ class StatsPanel {
         this._dynamicTexts= [];
 
         // Éléments spécifiques à chaque onglet
-        this._tabStatsEls = [];
-        this._tabInvEls   = [];
+        this._tabStatsEls    = [];
+        this._tabInvEls      = [];
+        this._tabSettingsEls = [];
 
         this._build();
         this.hide();
@@ -63,6 +65,7 @@ class StatsPanel {
         this._switchTab(this._tab);
         this._refresh();
         this._refreshInv();
+        this._refreshSettings();
     }
 
     hide() {
@@ -109,6 +112,10 @@ class StatsPanel {
             px + 10 + tabW + 8, tabY, tabW, tabH, '◆ INVENTAIRE',
             () => this._switchTab(TAB_INV)
         );
+        this._tabSettingsBtn = this._makeTabButton(
+            px + 10 + (tabW + 8) * 2, tabY, tabW, tabH, '⚙ RÉGLAGES',
+            () => this._switchTab(TAB_SETTINGS)
+        );
 
         this._push(this._sep(px + 10, tabY + tabH + 6, PANEL_W - 20));
 
@@ -119,6 +126,9 @@ class StatsPanel {
 
         // ── Contenu onglet INVENTAIRE ──
         this._buildTabInventory(px, contentY);
+
+        // ── Contenu onglet SETTINGS ──
+        this._buildTabSettings(px, contentY);
 
         // ── Bouton Fermer ──
         const closeY = py + PANEL_H - 36;
@@ -172,14 +182,20 @@ class StatsPanel {
             this._tabInvBtn.txt.setStyle({ color: on ? activeColor : inactiveColor });
             this._tabInvBtn.bg.setFillStyle(on ? activeBg : inactiveBg, 0.9);
         }
+        if (this._tabSettingsBtn) {
+            const on = tab === TAB_SETTINGS;
+            this._tabSettingsBtn.txt.setStyle({ color: on ? activeColor : inactiveColor });
+            this._tabSettingsBtn.bg.setFillStyle(on ? activeBg : inactiveBg, 0.9);
+        }
 
         // Afficher/masquer les contenus
-        const showStats = tab === TAB_STATS;
-        this._tabStatsEls.forEach(e => e.setVisible(showStats));
-        this._tabInvEls.forEach(e => e.setVisible(!showStats));
+        this._tabStatsEls.forEach(e    => e.setVisible(tab === TAB_STATS));
+        this._tabInvEls.forEach(e      => e.setVisible(tab === TAB_INV));
+        this._tabSettingsEls.forEach(e => e.setVisible(tab === TAB_SETTINGS));
 
-        if (tab === TAB_STATS) this._refresh();
-        else this._refreshInv();
+        if (tab === TAB_STATS)    this._refresh();
+        else if (tab === TAB_INV) this._refreshInv();
+        else                      this._refreshSettings();
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -438,6 +454,235 @@ class StatsPanel {
     // ──────────────────────────────────────────────────────────────
     // Utilitaires
     // ──────────────────────────────────────────────────────────────
+
+
+    // ──────────────────────────────────────────────────────────────
+    // Onglet RÉGLAGES — Audio + diagnostics
+    // ──────────────────────────────────────────────────────────────
+
+    _buildTabSettings(px, startY) {
+        const push = (o) => { this._tabSettingsEls.push(o); this._elements.push(o); return o; };
+        const D = PANEL_DEPTH + 2;
+        let y = startY;
+
+        // Titre section
+        push(this._txt(px + 14, y, '🔊  AUDIO', { fontSize: '13px', color: '#aabbff' }));
+        y += 24;
+
+        push(this._sep(px + 10, y, PANEL_W - 20)); y += 12;
+
+        // Statut AudioContext
+        this._settingsTxtStatus = push(this._txt(px + 14, y, '', { fontSize: '11px', color: '#778899' }));
+        y += 18;
+
+        // Bouton Activer/Désactiver son
+        this._settingsBtnToggle = this.scene.add.text(
+            px + PANEL_W / 2, y, '[ 🔊  SON ACTIVÉ ]',
+            { fontFamily: 'monospace', fontSize: '13px', color: '#44cc88',
+              backgroundColor: '#0a2a1a', padding: { x: 12, y: 7 } }
+        ).setOrigin(0.5, 0).setScrollFactor(0).setDepth(D).setInteractive();
+
+        this._settingsBtnToggle.on('pointerdown', () => this._toggleAudio());
+        this._settingsBtnToggle.on('pointerover',  () => this._settingsBtnToggle.setAlpha(0.7));
+        this._settingsBtnToggle.on('pointerout',   () => this._settingsBtnToggle.setAlpha(1));
+        push(this._settingsBtnToggle);
+        this._elements.push(this._settingsBtnToggle);
+        this._interactive.push(this._settingsBtnToggle);
+        y += 40;
+
+        // Bouton Test son (crée son propre AudioContext indépendant)
+        const btnTest = this.scene.add.text(
+            px + PANEL_W / 2, y, '[ ▶  TESTER LE SON ]',
+            { fontFamily: 'monospace', fontSize: '13px', color: '#ffcc44',
+              backgroundColor: '#2a1a00', padding: { x: 12, y: 7 } }
+        ).setOrigin(0.5, 0).setScrollFactor(0).setDepth(D).setInteractive();
+
+        btnTest.on('pointerdown', () => this._playSoundTest());
+        btnTest.on('pointerover',  () => btnTest.setAlpha(0.7));
+        btnTest.on('pointerout',   () => btnTest.setAlpha(1));
+        push(btnTest);
+        this._elements.push(btnTest);
+        this._interactive.push(btnTest);
+        y += 40;
+
+        // Résultat du test
+        this._settingsTxtResult = push(this._txt(px + PANEL_W / 2, y, '',
+            { fontSize: '10px', color: '#778899' }).setOrigin(0.5, 0));
+        y += 24;
+
+        push(this._sep(px + 10, y, PANEL_W - 20)); y += 12;
+
+        // Volume master (slider textuel)
+        push(this._txt(px + 14, y, 'Volume master :', { fontSize: '11px', color: '#8899aa' }));
+        y += 18;
+
+        const volBtns = [
+            { label: '25%', val: 0.25 }, { label: '50%', val: 0.50 },
+            { label: '75%', val: 0.75 }, { label: '100%', val: 1.00 },
+        ];
+        this._volBtns = [];
+        volBtns.forEach((vb, i) => {
+            const bx = px + 14 + i * 88;
+            const btn = this.scene.add.text(bx, y, `[ ${vb.label} ]`, {
+                fontFamily: 'monospace', fontSize: '11px', color: '#8899aa',
+                backgroundColor: '#111122', padding: { x: 6, y: 4 },
+            }).setScrollFactor(0).setDepth(D).setInteractive();
+            btn.on('pointerdown', () => this._setVolume(vb.val));
+            btn.on('pointerover',  () => btn.setAlpha(0.7));
+            btn.on('pointerout',   () => btn.setAlpha(1));
+            push(btn);
+            this._elements.push(btn);
+            this._interactive.push(btn);
+            this._volBtns.push({ btn, val: vb.val });
+        });
+        y += 36;
+
+        push(this._sep(px + 10, y, PANEL_W - 20)); y += 12;
+
+        // Info debug
+        push(this._txt(px + 14, y, 'Debug audio :', { fontSize: '10px', color: '#445566' }));
+        y += 16;
+        this._settingsTxtDebug = push(this._txt(px + 14, y, '', { fontSize: '9px', color: '#334455' }));
+    }
+
+    _refreshSettings() {
+        if (!this._open || this._tab !== TAB_SETTINGS) return;
+
+        const audio = this.scene.audio;
+        const ctx   = audio?._ctx;
+
+        // Statut AudioContext
+        let statusMsg, statusColor;
+        if (!ctx) {
+            statusMsg   = '⚠ AudioContext non initialisé — touchez l\'écran';
+            statusColor = '#ff9944';
+        } else if (ctx.state === 'running') {
+            statusMsg   = '✓ AudioContext actif (' + ctx.state + ')';
+            statusColor = '#44cc88';
+        } else {
+            statusMsg   = '⚠ AudioContext : ' + ctx.state;
+            statusColor = '#ff6644';
+        }
+        this._settingsTxtStatus?.setText(statusMsg).setStyle({ color: statusColor });
+
+        // Bouton toggle son
+        const muted = audio?.muted ?? false;
+        this._settingsBtnToggle?.setText(muted ? '[ 🔇  SON DÉSACTIVÉ ]' : '[ 🔊  SON ACTIVÉ ]')
+            .setStyle({ color: muted ? '#ff6644' : '#44cc88',
+                        backgroundColor: muted ? '#2a0a0a' : '#0a2a1a' });
+
+        // Volume courant
+        const vol = audio?._master?.gain.value ?? AUDIO_CONFIG?.master ?? 0.72;
+        this._volBtns?.forEach(({ btn, val }) => {
+            const active = Math.abs(val - vol) < 0.01;
+            btn.setStyle({ color: active ? '#ffffff' : '#8899aa',
+                           backgroundColor: active ? '#223355' : '#111122' });
+        });
+
+        // Debug info
+        if (ctx) {
+            this._settingsTxtDebug?.setText(
+                `sampleRate: ${ctx.sampleRate}Hz  latency: ${(ctx.baseLatency * 1000).toFixed(1)}ms\n` +
+                `state: ${ctx.state}  ready: ${audio._ready}  muted: ${audio.muted}`
+            );
+        } else {
+            this._settingsTxtDebug?.setText('Pas de contexte audio actif.');
+        }
+    }
+
+    _toggleAudio() {
+        const audio = this.scene.audio;
+        if (!audio) return;
+
+        if (!audio._ctx) {
+            // Forcer init depuis le panel
+            audio._initContext();
+            this.scene.time.delayedCall(300, () => this._refreshSettings());
+            return;
+        }
+        audio.toggleMute();
+        this._refreshSettings();
+    }
+
+    _playSoundTest() {
+        this._settingsTxtResult?.setText('Initialisation...').setStyle({ color: '#ffcc44' });
+
+        // Créer un AudioContext indépendant pour le test — pas de dépendance à AudioSystem
+        const playTest = (ctx) => {
+            try {
+                const t    = ctx.currentTime;
+                const osc  = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type            = 'sine';
+                osc.frequency.value = 440;
+                gain.gain.setValueAtTime(0.4, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(t);
+                osc.stop(t + 0.65);
+
+                // 2ème note pour confirmer
+                const osc2 = ctx.createOscillator();
+                const g2   = ctx.createGain();
+                osc2.type            = 'sine';
+                osc2.frequency.value = 554; // C#
+                g2.gain.setValueAtTime(0.3, t + 0.2);
+                g2.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+                osc2.connect(g2);
+                g2.connect(ctx.destination);
+                osc2.start(t + 0.2);
+                osc2.stop(t + 0.85);
+
+                this._settingsTxtResult?.setText('✓ Son envoyé — tu dois entendre 2 bips').setStyle({ color: '#44cc88' });
+
+                // Si AudioSystem n'est pas encore init, l'initialiser maintenant
+                if (!this.scene.audio?._ctx) {
+                    this.scene.audio?._initContext();
+                }
+
+                this._refreshSettings();
+            } catch(e) {
+                this._settingsTxtResult?.setText('✗ Erreur: ' + e.message).setStyle({ color: '#ff4444' });
+            }
+        };
+
+        // Utiliser le contexte AudioSystem existant OU en créer un temporaire
+        const audio = this.scene.audio;
+        if (audio?._ctx?.state === 'running') {
+            playTest(audio._ctx);
+        } else {
+            try {
+                const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const doPlay = () => {
+                    if (tmpCtx.state === 'running') {
+                        playTest(tmpCtx);
+                    } else {
+                        tmpCtx.resume().then(() => playTest(tmpCtx)).catch(e => {
+                            this._settingsTxtResult?.setText('✗ AudioContext bloqué: ' + e.message)
+                                .setStyle({ color: '#ff4444' });
+                        });
+                    }
+                };
+                doPlay();
+            } catch(e) {
+                this._settingsTxtResult?.setText('✗ ' + e.message).setStyle({ color: '#ff4444' });
+            }
+        }
+    }
+
+    _setVolume(val) {
+        const audio = this.scene.audio;
+        if (!audio?._master) {
+            this._settingsTxtResult?.setText('Son pas encore initialisé — testez d\'abord le son')
+                .setStyle({ color: '#ff9944' });
+            return;
+        }
+        audio._master.gain.setTargetAtTime(val, audio._ctx.currentTime, 0.05);
+        AUDIO_CONFIG.master = val;
+        this._refreshSettings();
+    }
+
 
     _push(obj) { this._elements.push(obj); return obj; }
     _addDynamic(obj, fn) { this._dynamicTexts.push({ obj, fn }); return obj; }
