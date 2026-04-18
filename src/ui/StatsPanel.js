@@ -605,70 +605,73 @@ class StatsPanel {
     }
 
     _playSoundTest() {
-        this._settingsTxtResult?.setText('Initialisation...').setStyle({ color: '#ffcc44' });
-
-        // Créer un AudioContext indépendant pour le test — pas de dépendance à AudioSystem
-        const playTest = (ctx) => {
-            try {
-                const t    = ctx.currentTime;
-                const osc  = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type            = 'sine';
-                osc.frequency.value = 440;
-                gain.gain.setValueAtTime(0.4, t);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(t);
-                osc.stop(t + 0.65);
-
-                // 2ème note pour confirmer
-                const osc2 = ctx.createOscillator();
-                const g2   = ctx.createGain();
-                osc2.type            = 'sine';
-                osc2.frequency.value = 554; // C#
-                g2.gain.setValueAtTime(0.3, t + 0.2);
-                g2.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
-                osc2.connect(g2);
-                g2.connect(ctx.destination);
-                osc2.start(t + 0.2);
-                osc2.stop(t + 0.85);
-
-                this._settingsTxtResult?.setText('✓ Son envoyé — tu dois entendre 2 bips').setStyle({ color: '#44cc88' });
-
-                // Si AudioSystem n'est pas encore init, l'initialiser maintenant
-                if (!this.scene.audio?._ctx) {
-                    this.scene.audio?._initContext();
-                }
-
-                this._refreshSettings();
-            } catch(e) {
-                this._settingsTxtResult?.setText('✗ Erreur: ' + e.message).setStyle({ color: '#ff4444' });
-            }
-        };
-
-        // Utiliser le contexte AudioSystem existant OU en créer un temporaire
+        this._settingsTxtResult?.setText('Test en cours...').setStyle({ color: '#ffcc44' });
         const audio = this.scene.audio;
-        if (audio?._ctx?.state === 'running') {
-            playTest(audio._ctx);
-        } else {
-            try {
-                const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const doPlay = () => {
-                    if (tmpCtx.state === 'running') {
-                        playTest(tmpCtx);
-                    } else {
-                        tmpCtx.resume().then(() => playTest(tmpCtx)).catch(e => {
-                            this._settingsTxtResult?.setText('✗ AudioContext bloqué: ' + e.message)
-                                .setStyle({ color: '#ff4444' });
-                        });
-                    }
-                };
-                doPlay();
-            } catch(e) {
-                this._settingsTxtResult?.setText('✗ ' + e.message).setStyle({ color: '#ff4444' });
-            }
+        const ctx   = audio?._ctx;
+        const lines = [];
+
+        // ── Étape 1 : AudioContext ──
+        if (!ctx) {
+            this._settingsTxtResult?.setText('✗ Pas de ctx — tap écran d\'abord').setStyle({ color: '#f44' });
+            return;
         }
+        lines.push(`ctx: ${ctx.state}`);
+
+        // ── Étape 2 : test direct ctx.destination (même que le test HTML) ──
+        try {
+            const t   = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const g   = ctx.createGain();
+            osc.frequency.value = 880;
+            g.gain.setValueAtTime(0.5, t);
+            g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+            osc.connect(g);
+            g.connect(ctx.destination); // direct, sans master ni buses
+            osc.start(t); osc.stop(t + 0.35);
+            lines.push('direct→dest: OK (bip aigu?)');
+        } catch(e) { lines.push('direct→dest: ERR ' + e.message); }
+
+        // ── Étape 3 : via master gain ──
+        try {
+            const master = audio._master;
+            lines.push(`master: gain=${master?.gain.value?.toFixed(2) ?? 'null'}`);
+            if (master) {
+                const t   = ctx.currentTime + 0.4;
+                const osc = ctx.createOscillator();
+                const g   = ctx.createGain();
+                osc.frequency.value = 660;
+                g.gain.setValueAtTime(0.5, t);
+                g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+                osc.connect(g);
+                g.connect(master); // via master
+                osc.start(t); osc.stop(t + 0.35);
+                lines.push('→master: OK (bip moyen?)');
+            } else { lines.push('→master: NULL'); }
+        } catch(e) { lines.push('→master: ERR ' + e.message); }
+
+        // ── Étape 4 : via bus sfx ──
+        try {
+            const sfx = audio._buses?.sfx;
+            lines.push(`sfx bus: gain=${sfx?.gain.value?.toFixed(2) ?? 'null'}`);
+            if (sfx) {
+                const t   = ctx.currentTime + 0.8;
+                const osc = ctx.createOscillator();
+                const g   = ctx.createGain();
+                osc.frequency.value = 440;
+                g.gain.setValueAtTime(0.5, t);
+                g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+                osc.connect(g);
+                g.connect(sfx); // via sfx bus
+                osc.start(t); osc.stop(t + 0.35);
+                lines.push('→sfx: OK (bip grave?)');
+            } else { lines.push('→sfx: NULL'); }
+        } catch(e) { lines.push('→sfx: ERR ' + e.message); }
+
+        // ── Étape 5 : muted ? ──
+        lines.push(`muted: ${audio.muted}  ready: ${audio._ready}`);
+
+        this._settingsTxtResult?.setText(lines.join('\n')).setStyle({ color: '#aabbff' });
+        this._refreshSettings();
     }
 
     _setVolume(val) {
