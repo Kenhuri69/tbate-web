@@ -66,18 +66,28 @@ class AudioSystem {
 
         this._bindEvents();
 
-        // AudioContext créé au 1er pointeur (règle autoplay navigateur)
-        // IMPORTANT : utiliser un handler nommé pour ne pas être supprimé
-        // par MobileControls qui fait input.off() global
-        this._audioInitHandler = () => this._initContext();
-        this._audioResumeHandler = () => {
-            if (this._ctx?.state === 'suspended') this._ctx.resume();
+        // Initialiser l'AudioContext sur le premier geste DOM natif.
+        // On utilise document (pas scene.input) pour éviter tout problème
+        // avec Scale.RESIZE de Phaser qui peut réinitialiser le système input.
+        this._domInitHandler = () => {
+            this._initContext();
+            // Garder le resume() actif sur chaque interaction suivante
+        };
+        this._domResumeHandler = () => {
+            if (this._ctx?.state === 'suspended') {
+                this._ctx.resume().catch(() => {});
+            }
         };
 
-        scene.input.once('pointerdown', this._audioInitHandler, this);
-        scene.input.on('pointerdown',   this._audioResumeHandler, this);
+        // { once: true } = s'auto-retire après le 1er déclenchement
+        document.addEventListener('touchstart', this._domInitHandler, { once: true, passive: true });
+        document.addEventListener('mousedown',  this._domInitHandler, { once: true, passive: true });
 
-        // Raccourci clavier mute (M) — distinct de la méditation (géré par ManaCoreSystem)
+        // Resume sur chaque interaction (au cas où le contexte serait suspendu)
+        document.addEventListener('touchstart', this._domResumeHandler, { passive: true });
+        document.addEventListener('mousedown',  this._domResumeHandler, { passive: true });
+
+        // Raccourci clavier mute
         scene.input.keyboard?.on('keydown-COMMA', () => this.toggleMute());
     }
 
@@ -505,6 +515,15 @@ class AudioSystem {
 
     _destroy() {
         clearTimeout(this._schedTimer);
+        // Retirer les listeners DOM natifs
+        if (this._domInitHandler) {
+            document.removeEventListener('touchstart', this._domInitHandler);
+            document.removeEventListener('mousedown',  this._domInitHandler);
+        }
+        if (this._domResumeHandler) {
+            document.removeEventListener('touchstart', this._domResumeHandler);
+            document.removeEventListener('mousedown',  this._domResumeHandler);
+        }
         try { this._ambientSrc?.stop(); } catch (_) {}
         try { this._droneOsc?.stop();   } catch (_) {}
         if (this._ctx?.state !== 'closed') this._ctx?.close();
