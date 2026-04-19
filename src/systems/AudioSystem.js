@@ -66,28 +66,18 @@ class AudioSystem {
 
         this._bindEvents();
 
-        // Initialiser l'AudioContext sur le premier geste DOM natif.
-        // On utilise document (pas scene.input) pour éviter tout problème
-        // avec Scale.RESIZE de Phaser qui peut réinitialiser le système input.
-        this._domInitHandler = () => {
-            this._initContext();
-            // Garder le resume() actif sur chaque interaction suivante
-        };
-        this._domResumeHandler = () => {
-            if (this._ctx?.state === 'suspended') {
-                this._ctx.resume().catch(() => {});
-            }
+        // AudioContext créé au 1er pointeur (règle autoplay navigateur)
+        // IMPORTANT : utiliser un handler nommé pour ne pas être supprimé
+        // par MobileControls qui fait input.off() global
+        this._audioInitHandler = () => this._initContext();
+        this._audioResumeHandler = () => {
+            if (this._ctx?.state === 'suspended') this._ctx.resume();
         };
 
-        // { once: true } = s'auto-retire après le 1er déclenchement
-        document.addEventListener('touchstart', this._domInitHandler, { once: true, passive: true });
-        document.addEventListener('mousedown',  this._domInitHandler, { once: true, passive: true });
+        scene.input.once('pointerdown', this._audioInitHandler, this);
+        scene.input.on('pointerdown',   this._audioResumeHandler, this);
 
-        // Resume sur chaque interaction (au cas où le contexte serait suspendu)
-        document.addEventListener('touchstart', this._domResumeHandler, { passive: true });
-        document.addEventListener('mousedown',  this._domResumeHandler, { passive: true });
-
-        // Raccourci clavier mute
+        // Raccourci clavier mute (M) — distinct de la méditation (géré par ManaCoreSystem)
         scene.input.keyboard?.on('keydown-COMMA', () => this.toggleMute());
     }
 
@@ -314,11 +304,17 @@ class AudioSystem {
         this._master.gain.value = this._muted ? 0 : AUDIO_CONFIG.master;
         this._master.connect(this._ctx.destination);
 
-        // Buses
-        const busNames = ['music', 'sfx', 'ambient'];
-        busNames.forEach(name => {
+        // Buses — gains depuis les clés scalaires dédiées
+        // IMPORTANT : AUDIO_CONFIG.music est un objet (config musicale), pas un gain !
+        // Les volumes de buses sont des propriétés séparées.
+        const busGains = {
+            music  : AUDIO_CONFIG.musicVolume  ?? 0.20,
+            sfx    : AUDIO_CONFIG.sfxVolume    ?? 0.55,
+            ambient: AUDIO_CONFIG.ambientVolume ?? 0.10,
+        };
+        ['music', 'sfx', 'ambient'].forEach(name => {
             const g = this._ctx.createGain();
-            g.gain.value = AUDIO_CONFIG[name];
+            g.gain.value = busGains[name];
             g.connect(this._master);
             this._buses[name] = g;
         });
@@ -515,15 +511,6 @@ class AudioSystem {
 
     _destroy() {
         clearTimeout(this._schedTimer);
-        // Retirer les listeners DOM natifs
-        if (this._domInitHandler) {
-            document.removeEventListener('touchstart', this._domInitHandler);
-            document.removeEventListener('mousedown',  this._domInitHandler);
-        }
-        if (this._domResumeHandler) {
-            document.removeEventListener('touchstart', this._domResumeHandler);
-            document.removeEventListener('mousedown',  this._domResumeHandler);
-        }
         try { this._ambientSrc?.stop(); } catch (_) {}
         try { this._droneOsc?.stop();   } catch (_) {}
         if (this._ctx?.state !== 'closed') this._ctx?.close();
