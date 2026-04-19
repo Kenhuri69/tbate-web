@@ -69,13 +69,14 @@ class AudioSystem {
         // AudioContext créé au 1er pointeur (règle autoplay navigateur)
         // IMPORTANT : utiliser un handler nommé pour ne pas être supprimé
         // par MobileControls qui fait input.off() global
-        this._audioInitHandler = () => this._initContext();
-        this._audioResumeHandler = () => {
-            if (this._ctx?.state === 'suspended') this._ctx.resume();
-        };
+        // DOM natif — indépendant de Phaser/Scale/MobileControls
+        this._domInit   = () => this._initContext();
+        this._domResume = () => { if (this._ctx?.state === 'suspended') this._ctx.resume().catch(()=>{}); };
 
-        scene.input.once('pointerdown', this._audioInitHandler, this);
-        scene.input.on('pointerdown',   this._audioResumeHandler, this);
+        document.addEventListener('touchstart', this._domInit,   { once: true, passive: true });
+        document.addEventListener('mousedown',  this._domInit,   { once: true, passive: true });
+        document.addEventListener('touchstart', this._domResume, { passive: true });
+        document.addEventListener('mousedown',  this._domResume, { passive: true });
 
         // Raccourci clavier mute (M) — distinct de la méditation (géré par ManaCoreSystem)
         scene.input.keyboard?.on('keydown-COMMA', () => this.toggleMute());
@@ -511,6 +512,10 @@ class AudioSystem {
 
     _destroy() {
         clearTimeout(this._schedTimer);
+        document.removeEventListener('touchstart', this._domInit);
+        document.removeEventListener('mousedown',  this._domInit);
+        document.removeEventListener('touchstart', this._domResume);
+        document.removeEventListener('mousedown',  this._domResume);
         try { this._ambientSrc?.stop(); } catch (_) {}
         try { this._droneOsc?.stop();   } catch (_) {}
         if (this._ctx?.state !== 'closed') this._ctx?.close();
