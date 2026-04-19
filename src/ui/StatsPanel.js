@@ -593,26 +593,25 @@ class StatsPanel {
     _toggleAudio() {
         const audio = this.scene.audio;
         if (!audio) return;
-
-        if (!audio._ctx) {
-            // Forcer init depuis le panel
-            audio._initContext();
-            this.scene.time.delayedCall(300, () => this._refreshSettings());
-            return;
+        // Toujours forcer init — le tap sur ce bouton est un geste utilisateur valide
+        if (!audio._ctx) audio._initContext();
+        if (audio._ctx) {
+            audio.toggleMute();
         }
-        audio.toggleMute();
-        this._refreshSettings();
+        this.scene.time.delayedCall(100, () => this._refreshSettings());
     }
 
     _playSoundTest() {
         this._settingsTxtResult?.setText('Test en cours...').setStyle({ color: '#ffcc44' });
         const audio = this.scene.audio;
+        // Forcer init si pas encore fait — le tap sur ce bouton = geste utilisateur
+        if (!audio?._ctx) audio?._initContext();
         const ctx   = audio?._ctx;
         const lines = [];
 
         // ── Étape 1 : AudioContext ──
         if (!ctx) {
-            this._settingsTxtResult?.setText('✗ Pas de ctx — tap écran d\'abord').setStyle({ color: '#f44' });
+            this._settingsTxtResult?.setText('✗ Pas de ctx après init forcée').setStyle({ color: '#f44' });
             return;
         }
         lines.push(`ctx: ${ctx.state}`);
