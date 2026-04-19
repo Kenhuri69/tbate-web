@@ -14,10 +14,11 @@
 const AUDIO_CONFIG = {
 
     // ── Volumes globaux [0..1] ────────────────────────────────────
-    master : 0.72,
-    music  : 0.20,
-    sfx    : 0.55,
-    ambient: 0.10,
+    master       : 0.72,
+    musicVolume  : 0.20,   // volume du bus musique
+    sfxVolume    : 0.55,   // volume du bus effets sonores
+    ambientVolume: 0.10,   // volume du bus ambiance
+    // NOTE : AUDIO_CONFIG.music est réservé à la config musicale (objet)
 
     // ── Sorts : couleur sonore par spell.id ───────────────────────
     // Clés = spell.id exact défini dans spells.js
