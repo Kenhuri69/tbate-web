@@ -465,225 +465,159 @@ class StatsPanel {
         const D = PANEL_DEPTH + 2;
         let y = startY;
 
-        // Titre section
-        push(this._txt(px + 14, y, '🔊  AUDIO', { fontSize: '13px', color: '#aabbff' }));
-        y += 24;
+        // Titre
+        push(this._txt(px + 14, y, 'DIAGNOSTIC AUDIO', { fontSize: '13px', color: '#aabbff' }));
+        y += 28;
 
-        push(this._sep(px + 10, y, PANEL_W - 20)); y += 12;
+        // Zone de log scrollable (texte multiligne)
+        this._diagLog = push(this._txt(px + 14, y, 'Appuyez sur un test...', {
+            fontSize: '10px', color: '#aabbcc', wordWrap: { width: PANEL_W - 28 }
+        }));
+        y += 160;
 
-        // Statut AudioContext
-        this._settingsTxtStatus = push(this._txt(px + 14, y, '', { fontSize: '11px', color: '#778899' }));
-        y += 18;
+        // 4 boutons de test empilés
+        const makeBtn = (label, color, bg, fn) => {
+            const b = this.scene.add.text(px + PANEL_W / 2, y, label, {
+                fontFamily: 'monospace', fontSize: '11px', color,
+                backgroundColor: bg, padding: { x: 10, y: 6 }
+            }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(D).setInteractive();
+            b.on('pointerdown', fn);
+            b.on('pointerover',  () => b.setAlpha(0.7));
+            b.on('pointerout',   () => b.setAlpha(1.0));
+            push(b); this._elements.push(b); this._interactive.push(b);
+            y += 36;
+            return b;
+        };
 
-        // Bouton Activer/Désactiver son
-        this._settingsBtnToggle = this.scene.add.text(
-            px + PANEL_W / 2, y, '[ 🔊  SON ACTIVÉ ]',
-            { fontFamily: 'monospace', fontSize: '13px', color: '#44cc88',
-              backgroundColor: '#0a2a1a', padding: { x: 12, y: 7 } }
-        ).setOrigin(0.5, 0).setScrollFactor(0).setDepth(D).setInteractive();
+        makeBtn('[ TEST 1 ] Créer AudioContext standalone', '#ffcc44', '#2a1a00', () => this._test1());
+        makeBtn('[ TEST 2 ] Appeler audio._initContext()', '#44ccff', '#001a2a', () => this._test2());
+        makeBtn('[ TEST 3 ] Inspecter graphe AudioSystem',  '#cc88ff', '#1a002a', () => this._test3());
+        makeBtn('[ TEST 4 ] Jouer via sfx bus direct',      '#44ff88', '#002a1a', () => this._test4());
+    }
 
-        this._settingsBtnToggle.on('pointerdown', () => this._toggleAudio());
-        this._settingsBtnToggle.on('pointerover',  () => this._settingsBtnToggle.setAlpha(0.7));
-        this._settingsBtnToggle.on('pointerout',   () => this._settingsBtnToggle.setAlpha(1));
-        push(this._settingsBtnToggle);
-        this._elements.push(this._settingsBtnToggle);
-        this._interactive.push(this._settingsBtnToggle);
-        y += 40;
+    _log(lines) {
+        if (this._diagLog) this._diagLog.setText(Array.isArray(lines) ? lines.join('\n') : lines);
+    }
 
-        // Bouton Test son (crée son propre AudioContext indépendant)
-        const btnTest = this.scene.add.text(
-            px + PANEL_W / 2, y, '[ ▶  TESTER LE SON ]',
-            { fontFamily: 'monospace', fontSize: '13px', color: '#ffcc44',
-              backgroundColor: '#2a1a00', padding: { x: 12, y: 7 } }
-        ).setOrigin(0.5, 0).setScrollFactor(0).setDepth(D).setInteractive();
+    // TEST 1 : Créer un AudioContext entièrement standalone et jouer un son
+    // Confirme que Web Audio fonctionne dans ce contexte de page
+    _test1() {
+        const L = ['TEST 1: Standalone AudioContext'];
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            L.push('ctx créé, state=' + ctx.state);
+            const play = () => {
+                try {
+                    const o = ctx.createOscillator(), g = ctx.createGain();
+                    o.frequency.value = 660;
+                    g.gain.setValueAtTime(0.5, ctx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+                    o.connect(g); g.connect(ctx.destination);
+                    o.start(); o.stop(ctx.currentTime + 0.55);
+                    L.push('Son joué direct→destination');
+                    L.push(ctx.state === 'running' ? '✓ ENTENDU ?' : '⚠ state=' + ctx.state);
+                } catch(e2) { L.push('ERR play: ' + e2.message); }
+                this._log(L);
+            };
+            if (ctx.state === 'suspended') ctx.resume().then(play).catch(e => { L.push('ERR resume: '+e.message); this._log(L); });
+            else play();
+        } catch(e) {
+            L.push('ERR création: ' + e.message);
+            this._log(L);
+        }
+    }
 
-        btnTest.on('pointerdown', () => this._playSoundTest());
-        btnTest.on('pointerover',  () => btnTest.setAlpha(0.7));
-        btnTest.on('pointerout',   () => btnTest.setAlpha(1));
-        push(btnTest);
-        this._elements.push(btnTest);
-        this._interactive.push(btnTest);
-        y += 40;
+    // TEST 2 : Appeler _initContext() directement et inspecter le résultat
+    _test2() {
+        const audio = this.scene.audio;
+        const L = ['TEST 2: audio._initContext()'];
+        if (!audio) { L.push('ERR: scene.audio est null'); this._log(L); return; }
+        L.push('audio existe: ' + typeof audio);
+        L.push('_ctx avant: ' + (audio._ctx ? audio._ctx.state : 'null'));
+        L.push('_ready avant: ' + audio._ready);
+        L.push('_buses avant: sfx=' + (audio._buses?.sfx ? 'ok' : 'null'));
+        try {
+            audio._initContext();
+            L.push('_initContext() appelé sans exception');
+            L.push('_ctx après: ' + (audio._ctx ? audio._ctx.state : 'null'));
+            L.push('_ready après: ' + audio._ready);
+            L.push('_master: ' + (audio._master ? 'gain='+audio._master.gain.value.toFixed(2) : 'null'));
+            L.push('_buses.music: ' + (audio._buses?.music ? 'gain='+audio._buses.music.gain.value.toFixed(2) : 'null'));
+            L.push('_buses.sfx: '   + (audio._buses?.sfx   ? 'gain='+audio._buses.sfx.gain.value.toFixed(2)   : 'null'));
+            L.push('_buses.ambient: '+(audio._buses?.ambient? 'gain='+audio._buses.ambient.gain.value.toFixed(2):'null'));
+        } catch(e) {
+            L.push('EXCEPTION _initContext: ' + e.message);
+            L.push('Stack: ' + (e.stack?.split('\n')[1] ?? 'N/A'));
+        }
+        this._log(L);
+    }
 
-        // Résultat du test
-        this._settingsTxtResult = push(this._txt(px + PANEL_W / 2, y, '',
-            { fontSize: '10px', color: '#778899' }).setOrigin(0.5, 0));
-        y += 24;
-
-        push(this._sep(px + 10, y, PANEL_W - 20)); y += 12;
-
-        // Volume master (slider textuel)
-        push(this._txt(px + 14, y, 'Volume master :', { fontSize: '11px', color: '#8899aa' }));
-        y += 18;
-
-        const volBtns = [
-            { label: '25%', val: 0.25 }, { label: '50%', val: 0.50 },
-            { label: '75%', val: 0.75 }, { label: '100%', val: 1.00 },
-        ];
-        this._volBtns = [];
-        volBtns.forEach((vb, i) => {
-            const bx = px + 14 + i * 88;
-            const btn = this.scene.add.text(bx, y, `[ ${vb.label} ]`, {
-                fontFamily: 'monospace', fontSize: '11px', color: '#8899aa',
-                backgroundColor: '#111122', padding: { x: 6, y: 4 },
-            }).setScrollFactor(0).setDepth(D).setInteractive();
-            btn.on('pointerdown', () => this._setVolume(vb.val));
-            btn.on('pointerover',  () => btn.setAlpha(0.7));
-            btn.on('pointerout',   () => btn.setAlpha(1));
-            push(btn);
-            this._elements.push(btn);
-            this._interactive.push(btn);
-            this._volBtns.push({ btn, val: vb.val });
+    // TEST 3 : Inspecter le graphe AudioSystem sans rien jouer
+    _test3() {
+        const audio = this.scene.audio;
+        const L = ['TEST 3: Inspection graphe AudioSystem'];
+        if (!audio) { L.push('ERR: scene.audio null'); this._log(L); return; }
+        const ctx = audio._ctx;
+        L.push('_ctx: '    + (ctx ? ctx.state : 'null'));
+        L.push('_ready: '  + audio._ready);
+        L.push('_muted: '  + audio._muted);
+        L.push('_master: ' + (audio._master ? 'gain='+audio._master.gain.value.toFixed(3) : 'null'));
+        ['music','sfx','ambient'].forEach(k => {
+            const b = audio._buses?.[k];
+            L.push('bus.' + k + ': ' + (b ? 'gain='+b.gain.value.toFixed(3) : 'null'));
         });
-        y += 36;
+        L.push('AUDIO_CONFIG.master: '        + AUDIO_CONFIG.master);
+        L.push('AUDIO_CONFIG.musicVolume: '   + AUDIO_CONFIG.musicVolume);
+        L.push('AUDIO_CONFIG.sfxVolume: '     + AUDIO_CONFIG.sfxVolume);
+        L.push('AUDIO_CONFIG.ambientVolume: ' + AUDIO_CONFIG.ambientVolume);
+        L.push('typeof AUDIO_CONFIG.music: '  + typeof AUDIO_CONFIG.music);
+        this._log(L);
+    }
 
-        push(this._sep(px + 10, y, PANEL_W - 20)); y += 12;
-
-        // Info debug
-        push(this._txt(px + 14, y, 'Debug audio :', { fontSize: '10px', color: '#445566' }));
-        y += 16;
-        this._settingsTxtDebug = push(this._txt(px + 14, y, '', { fontSize: '9px', color: '#334455' }));
+    // TEST 4 : Si buses existent, jouer directement via sfx
+    _test4() {
+        const audio = this.scene.audio;
+        const L = ['TEST 4: Jouer via sfx bus'];
+        if (!audio?._ctx) { L.push('ERR: pas de ctx — faites TEST 2 d\'abord'); this._log(L); return; }
+        const ctx = audio._ctx;
+        const sfx = audio._buses?.sfx;
+        if (!sfx) { L.push('ERR: sfx bus null — faites TEST 2 d\'abord'); this._log(L); return; }
+        L.push('ctx: ' + ctx.state);
+        L.push('sfx gain: ' + sfx.gain.value);
+        L.push('master gain: ' + audio._master?.gain.value);
+        try {
+            const t = ctx.currentTime;
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.frequency.value = 440;
+            g.gain.setValueAtTime(0.8, t);
+            g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+            o.connect(g);
+            g.connect(sfx);   // via sfx bus
+            o.start(t); o.stop(t + 0.65);
+            L.push('Son envoyé: osc→gain→sfx→master→dest');
+            L.push('Tu dois entendre un BIP');
+        } catch(e) {
+            L.push('ERR: ' + e.message);
+        }
+        this._log(L);
     }
 
     _refreshSettings() {
-        if (!this._open || this._tab !== TAB_SETTINGS) return;
-
-        const audio = this.scene.audio;
-        const ctx   = audio?._ctx;
-
-        // Statut AudioContext
-        let statusMsg, statusColor;
-        if (!ctx) {
-            statusMsg   = '⚠ AudioContext non initialisé — touchez l\'écran';
-            statusColor = '#ff9944';
-        } else if (ctx.state === 'running') {
-            statusMsg   = '✓ AudioContext actif (' + ctx.state + ')';
-            statusColor = '#44cc88';
-        } else {
-            statusMsg   = '⚠ AudioContext : ' + ctx.state;
-            statusColor = '#ff6644';
-        }
-        this._settingsTxtStatus?.setText(statusMsg).setStyle({ color: statusColor });
-
-        // Bouton toggle son
-        const muted = audio?.muted ?? false;
-        this._settingsBtnToggle?.setText(muted ? '[ 🔇  SON DÉSACTIVÉ ]' : '[ 🔊  SON ACTIVÉ ]')
-            .setStyle({ color: muted ? '#ff6644' : '#44cc88',
-                        backgroundColor: muted ? '#2a0a0a' : '#0a2a1a' });
-
-        // Volume courant
-        const vol = audio?._master?.gain.value ?? AUDIO_CONFIG?.master ?? 0.72;
-        this._volBtns?.forEach(({ btn, val }) => {
-            const active = Math.abs(val - vol) < 0.01;
-            btn.setStyle({ color: active ? '#ffffff' : '#8899aa',
-                           backgroundColor: active ? '#223355' : '#111122' });
-        });
-
-        // Debug info
-        if (ctx) {
-            this._settingsTxtDebug?.setText(
-                `sampleRate: ${ctx.sampleRate}Hz  latency: ${(ctx.baseLatency * 1000).toFixed(1)}ms\n` +
-                `state: ${ctx.state}  ready: ${audio._ready}  muted: ${audio.muted}`
-            );
-        } else {
-            this._settingsTxtDebug?.setText('Pas de contexte audio actif.');
-        }
+        // Juste rafraîchir le log si ouvert
     }
 
     _toggleAudio() {
         const audio = this.scene.audio;
         if (!audio) return;
-        // Toujours forcer init — le tap sur ce bouton est un geste utilisateur valide
-        if (!audio._ctx) audio._initContext();
-        if (audio._ctx) {
-            audio.toggleMute();
+        if (!audio._ctx) {
+            try { audio._initContext(); } catch(e) {}
         }
-        this.scene.time.delayedCall(100, () => this._refreshSettings());
-    }
-
-    _playSoundTest() {
-        this._settingsTxtResult?.setText('Test en cours...').setStyle({ color: '#ffcc44' });
-        const audio = this.scene.audio;
-        // Forcer init si pas encore fait — le tap sur ce bouton = geste utilisateur
-        if (!audio?._ctx) audio?._initContext();
-        const ctx   = audio?._ctx;
-        const lines = [];
-
-        // ── Étape 1 : AudioContext ──
-        if (!ctx) {
-            this._settingsTxtResult?.setText('✗ Pas de ctx après init forcée').setStyle({ color: '#f44' });
-            return;
-        }
-        lines.push(`ctx: ${ctx.state}`);
-
-        // ── Étape 2 : test direct ctx.destination (même que le test HTML) ──
-        try {
-            const t   = ctx.currentTime;
-            const osc = ctx.createOscillator();
-            const g   = ctx.createGain();
-            osc.frequency.value = 880;
-            g.gain.setValueAtTime(0.5, t);
-            g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-            osc.connect(g);
-            g.connect(ctx.destination); // direct, sans master ni buses
-            osc.start(t); osc.stop(t + 0.35);
-            lines.push('direct→dest: OK (bip aigu?)');
-        } catch(e) { lines.push('direct→dest: ERR ' + e.message); }
-
-        // ── Étape 3 : via master gain ──
-        try {
-            const master = audio._master;
-            lines.push(`master: gain=${master?.gain.value?.toFixed(2) ?? 'null'}`);
-            if (master) {
-                const t   = ctx.currentTime + 0.4;
-                const osc = ctx.createOscillator();
-                const g   = ctx.createGain();
-                osc.frequency.value = 660;
-                g.gain.setValueAtTime(0.5, t);
-                g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-                osc.connect(g);
-                g.connect(master); // via master
-                osc.start(t); osc.stop(t + 0.35);
-                lines.push('→master: OK (bip moyen?)');
-            } else { lines.push('→master: NULL'); }
-        } catch(e) { lines.push('→master: ERR ' + e.message); }
-
-        // ── Étape 4 : via bus sfx ──
-        try {
-            const sfx = audio._buses?.sfx;
-            lines.push(`sfx bus: gain=${sfx?.gain.value?.toFixed(2) ?? 'null'}`);
-            if (sfx) {
-                const t   = ctx.currentTime + 0.8;
-                const osc = ctx.createOscillator();
-                const g   = ctx.createGain();
-                osc.frequency.value = 440;
-                g.gain.setValueAtTime(0.5, t);
-                g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-                osc.connect(g);
-                g.connect(sfx); // via sfx bus
-                osc.start(t); osc.stop(t + 0.35);
-                lines.push('→sfx: OK (bip grave?)');
-            } else { lines.push('→sfx: NULL'); }
-        } catch(e) { lines.push('→sfx: ERR ' + e.message); }
-
-        // ── Étape 5 : muted ? ──
-        lines.push(`muted: ${audio.muted}  ready: ${audio._ready}`);
-
-        this._settingsTxtResult?.setText(lines.join('\n')).setStyle({ color: '#aabbff' });
+        if (audio._ctx) audio.toggleMute();
         this._refreshSettings();
     }
 
-    _setVolume(val) {
-        const audio = this.scene.audio;
-        if (!audio?._master) {
-            this._settingsTxtResult?.setText('Son pas encore initialisé — testez d\'abord le son')
-                .setStyle({ color: '#ff9944' });
-            return;
-        }
-        audio._master.gain.setTargetAtTime(val, audio._ctx.currentTime, 0.05);
-        AUDIO_CONFIG.master = val;
-        this._refreshSettings();
-    }
+    _playSoundTest() { this._test1(); }
+    _setVolume(val) {}
 
 
     _push(obj) { this._elements.push(obj); return obj; }
