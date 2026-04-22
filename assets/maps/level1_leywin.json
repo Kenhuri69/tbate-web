@@ -1,0 +1,88 @@
+{
+  "meta": {
+    "name": "Maison Leywin",
+    "tileSize": 32,
+    "width": 40,
+    "height": 30,
+    "environment": "leywin"
+  },
+  "rooms": [
+    {
+      "id": "bedroom",
+      "label": "Chambre d'Arthur",
+      "bounds": { "x": 2,  "y": 2,  "w": 10, "h": 8 },
+      "floorColor": "#3a2810",
+      "wallColor":  "#1a1006",
+      "spawnPlayer": true
+    },
+    {
+      "id": "salon",
+      "label": "Salon",
+      "bounds": { "x": 14, "y": 2,  "w": 14, "h": 8 },
+      "floorColor": "#3a2810",
+      "wallColor":  "#1a1006"
+    },
+    {
+      "id": "kitchen",
+      "label": "Cuisine",
+      "bounds": { "x": 2,  "y": 13, "w": 10, "h": 7 },
+      "floorColor": "#2e2008",
+      "wallColor":  "#180e04"
+    },
+    {
+      "id": "garden",
+      "label": "Jardin",
+      "bounds": { "x": 2,  "y": 22, "w": 36, "h": 6 },
+      "floorColor": "#162410",
+      "wallColor":  "#0a1806"
+    }
+  ],
+  "corridors": [
+    { "from": "bedroom", "to": "salon",   "axis": "h", "wallY": 6,  "doorX": 12, "width": 2 },
+    { "from": "bedroom", "to": "kitchen", "axis": "v", "wallX": 7,  "doorY": 10, "width": 2 },
+    { "from": "salon",   "to": "garden",  "axis": "v", "wallX": 21, "doorY": 21, "width": 2 },
+    { "from": "kitchen", "to": "garden",  "axis": "v", "wallX": 7,  "doorY": 21, "width": 2 }
+  ],
+  "npcs": [
+    {
+      "id":     "alice",
+      "name":   "Alice Leywin",
+      "room":   "salon",
+      "tileX":  19, "tileY": 5,
+      "color":  "0xf0a0c0",
+      "dialogueKey": "alice_idle"
+    },
+    {
+      "id":     "reynolds",
+      "name":   "Reynolds Leywin",
+      "room":   "garden",
+      "tileX":  24, "tileY": 24,
+      "color":  "0x8090c0",
+      "dialogueKey": "reynolds_idle"
+    }
+  ],
+  "meditationSpots": [
+    { "id": "spot_bedroom", "room": "bedroom", "tileX": 5,  "tileY": 7,  "label": "Coin repos" },
+    { "id": "spot_garden",  "room": "garden",  "tileX": 30, "tileY": 24, "label": "Sous l'arbre" }
+  ],
+  "essenceThresholds": [
+    { "essence": 0,   "dialogue": "chapter1_start",     "once": true  },
+    { "essence": 25,  "dialogue": "reynolds_magic",      "once": true  },
+    { "essence": 50,  "dialogue": "alice_healing",       "once": true  },
+    { "essence": 75,  "dialogue": "inner_voice_1",       "once": true  },
+    { "essence": 100, "dialogue": "black_core_awakening","once": true, "trigger": "unlock_mana_core" }
+  ],
+  "enemyWaves": [
+    { "atEssence": 50, "enemies": [
+        { "type": "rat",       "tileX": 4,  "tileY": 15, "count": 1 },
+        { "type": "rat",       "tileX": 9,  "tileY": 13, "count": 1 }
+    ]},
+    { "atEssence": 75, "enemies": [
+        { "type": "rat",       "tileX": 16, "tileY": 4,  "count": 1 },
+        { "type": "rat",       "tileX": 5,  "tileY": 3,  "count": 1 }
+    ]},
+    { "atEssence": 90, "enemies": [
+        { "type": "rat_alpha", "tileX": 20, "tileY": 24, "count": 1 }
+    ]}
+  ]
+}
