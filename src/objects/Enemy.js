@@ -25,12 +25,13 @@ class Enemy {
      * @param {object}       [config={}]
      */
     constructor(scene, x, y, config = {}) {
-        this.scene  = scene;
-        this.maxHp  = config.hp      ?? 50;
-        this.hp     = this.maxHp;
-        this.speed  = config.speed   ?? 55;
-        this.xpDrop = config.xpDrop  ?? 30;
-        this.alive  = true;
+        this.scene        = scene;
+        this.maxHp        = config.hp      ?? 50;
+        this.hp           = this.maxHp;
+        this.speed        = config.speed   ?? 55;
+        this.xpDrop       = config.xpDrop  ?? 30;
+        this.resourceDrop = config.resourceDrop ?? null;
+        this.alive        = true;
 
         this.sprite = scene.physics.add.sprite(x, y, 'enemy').setDepth(10);
         this.sprite.enemyRef = this; // référence inverse pour les collisions
@@ -112,9 +113,10 @@ class Enemy {
         });
 
         this.scene.events.emit('enemy:died', {
-            x      : this.sprite.x,
-            y      : this.sprite.y,
-            xpDrop : this.xpDrop,
+            x            : this.sprite.x,
+            y            : this.sprite.y,
+            xpDrop       : this.xpDrop,
+            resourceDrop : this.resourceDrop,
         });
     }
 }

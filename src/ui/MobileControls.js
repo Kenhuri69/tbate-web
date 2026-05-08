@@ -46,6 +46,7 @@ class MobileControls {
 
     _buildButtons(W, H) {
         const isPortrait = H > W;
+        this._buttons = [];
 
         // Positions adaptées selon l'orientation
         // Portrait  : boutons en bas à droite, menu en haut à droite
@@ -96,7 +97,7 @@ class MobileControls {
         gfx.lineStyle(1.5, 0xffffff, 0.28);
         gfx.strokeCircle(x, y, r);
 
-        this.scene.add.text(x, y, icon, {
+        const text = this.scene.add.text(x, y, icon, {
             fontFamily: 'monospace',
             fontSize: `${Math.round(r * 0.78)}px`,
             color: '#ffffff'
@@ -111,7 +112,21 @@ class MobileControls {
             onDown(ptr);
         });
 
-        return { gfx, zone };
+        const handle = { gfx, text, zone };
+        this._buttons.push(handle);
+        return handle;
+    }
+
+    _destroyButtons() {
+        if (!this._buttons) return;
+        for (const b of this._buttons) {
+            b.zone?.destroy();
+            b.text?.destroy();
+            b.gfx?.destroy();
+        }
+        this._buttons = [];
+        this._castBtn = null;
+        this._menuBtn = null;
     }
 
     _registerPointerEvents(W, H) {
@@ -182,9 +197,8 @@ class MobileControls {
         this._W = newW;
         this._H = newH;
 
-        // Destruction complète
-        if (this._castBtn?.zone) this._castBtn.zone.destroy();
-        if (this._menuBtn?.zone) this._menuBtn.zone.destroy();
+        // Destruction complète : boutons (gfx + text + zone) et joystick.
+        this._destroyButtons();
         if (this._joyBase) this._joyBase.destroy();
         if (this._joyKnob) this._joyKnob.destroy();
 

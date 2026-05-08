@@ -1,0 +1,57 @@
+[smoke] loading http://127.0.0.1:33207/index.html
+
+=== SMOKE REPORT ===
+{
+  "url": "http://127.0.0.1:33207",
+  "diag": {
+    "hasPhaser": true,
+    "canvasCount": 1,
+    "canvasSize": {
+      "w": 1280,
+      "h": 720
+    },
+    "scenesActive": [
+      "Level1Scene"
+    ],
+    "scenesAll": [
+      {
+        "key": "Level1Scene",
+        "active": true,
+        "status": 5,
+        "visible": true
+      },
+      {
+        "key": "GameScene",
+        "active": false,
+        "status": 1,
+        "visible": true
+      },
+      {
+        "key": "DialogueScene",
+        "active": false,
+        "status": 1,
+        "visible": true
+      }
+    ],
+    "gamesCount": 1,
+    "missingGlobals": []
+  },
+  "finalDiag": {
+    "scenesActive": [
+      "Level1Scene"
+    ]
+  },
+  "consoleErrors": [],
+  "consoleWarns": [
+    "[GroupMarkerNotSet(crbug.com/242999)!:A07020000C340000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader (about:flags#enable-unsafe-swiftshader) flag to opt in to lower security guarantees for trusted content.",
+    "[GroupMarkerNotSet(crbug.com/242999)!:A0A020000C340000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader (about:flags#enable-unsafe-swiftshader) flag to opt in to lower security guarantees for trusted content.",
+    "[.WebGL-0x18640013ec00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[.WebGL-0x18640013ec00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[.WebGL-0x18640013ec00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[.WebGL-0x18640013ec00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+  ],
+  "pageErrors": [],
+  "failedReqs": []
+}
+
+[smoke] OK
