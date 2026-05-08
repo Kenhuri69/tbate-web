@@ -515,7 +515,16 @@ class Level1Scene extends Phaser.Scene {
             this._player.setTint(0xff2222);
             this.time.delayedCall(180, () => this._player?.clearTint());
             this._updateHUD();
+            if (this._playerHp <= 0) this.events.emit('player:died');
         });
+
+        this.events.once('player:died', () => this._onPlayerDied());
+    }
+
+    _onPlayerDied() {
+        this.physics.pause();
+        this._player?.setVelocity(0, 0);
+        this.scene.launch('GameOverScene', { sourceKey: this.scene.key });
     }
 
     _setupControls() {

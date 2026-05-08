@@ -66,8 +66,12 @@ async function main() {
                 _phaser = v;
                 if (v && v.Game && !v.Game[FLAG]) {
                     const Orig = v.Game;
-                    function Patched(...args) {
-                        const inst = new Orig(...args);
+                    function Patched(config, ...rest) {
+                        // Forcer le rendu Canvas en headless : software WebGL
+                        // est instable dans le sandbox et fait stall le boot
+                        // de scènes complexes (BSP dungeon).
+                        if (config && typeof config === 'object') config.type = 1; // Phaser.CANVAS
+                        const inst = new Orig(config, ...rest);
                         window.__games__.push(inst);
                         return inst;
                     }
@@ -343,6 +347,55 @@ async function main() {
         return { ok: detail.delta <= 5, detail };
     });
 
+    // ============================================================
+    // Game Over : GameScene → stats.takeDamage(maxHP) lance GameOverScene
+    // ============================================================
+    check('GameScene : HP=0 lance GameOverScene', async () => {
+        await page.evaluate(() => {
+            const sc = window.__games__[0].scene.getScene('GameScene');
+            sc.stats.currentHP = sc.stats.maxHP;        // au cas où il a déjà mangé
+            sc.stats.takeDamage(sc.stats.maxHP + 1);    // déclenche player:died
+        });
+        await page.waitForTimeout(200);
+        const detail = await page.evaluate(() => {
+            const g = window.__games__[0];
+            return {
+                gameOverActive: g.scene.getScene('GameOverScene').sys.settings.active,
+                gameSceneActive: g.scene.getScene('GameScene').sys.settings.active,
+            };
+        });
+        return { ok: detail.gameOverActive, detail };
+    });
+
+    // ============================================================
+    // Game Over : touche R reset playerState et restart la scène source
+    // ============================================================
+    check('GameOverScene : R reset playerState et restart la source', async () => {
+        // Salir l'état pour observer le reset
+        await page.evaluate(() => {
+            playerState.manaCoreLevel = 3;
+            playerState.manaEssence   = 999;
+            playerState.inventory.mana_dust = 5;
+        });
+        await page.keyboard.press('KeyR');
+        await page.waitForTimeout(800);
+        const detail = await page.evaluate(() => ({
+            manaCoreLevel: playerState.manaCoreLevel,
+            manaEssence  : playerState.manaEssence,
+            inventory    : { ...playerState.inventory },
+            gameOverActive: window.__games__[0].scene.getScene('GameOverScene').sys.settings.active,
+            gameSceneActive: window.__games__[0].scene.getScene('GameScene').sys.settings.active,
+        }));
+        return {
+            ok: detail.manaCoreLevel === 0
+                && detail.manaEssence === 0
+                && detail.inventory.mana_dust === 0
+                && !detail.gameOverActive
+                && detail.gameSceneActive,
+            detail,
+        };
+    });
+
     check('GameScene : enemy.takeDamage(999) émet enemy:died sans crash', async () => {
         const errBefore = errs.page.length;
         const detail = await page.evaluate(() => {
@@ -360,15 +413,44 @@ async function main() {
     });
 
     // ============================================================
+    // Game Over : Level1Scene émet player:died → GameOverScene
+    // (placé en dernier car switch sur Level1Scene)
+    // ============================================================
+    check('Level1Scene : player:died lance GameOverScene', async () => {
+        await page.evaluate(() => {
+            const game = window.__games__[0];
+            for (const k of ['GameScene', 'DialogueScene', 'GameOverScene']) {
+                const s = game.scene.getScene(k);
+                if (s.sys.settings.active) game.scene.stop(k);
+            }
+            game.scene.start('Level1Scene');
+        });
+        await page.waitForTimeout(800);
+        await page.evaluate(() => {
+            const sc = window.__games__[0].scene.getScene('Level1Scene');
+            sc.events.emit('player:died');
+        });
+        await page.waitForTimeout(300);
+        const detail = await page.evaluate(() => ({
+            gameOverActive: window.__games__[0].scene.getScene('GameOverScene').sys.settings.active,
+        }));
+        return { ok: detail.gameOverActive, detail };
+    });
+
+    // ============================================================
     // EXEC
     // ============================================================
     let pass = 0, fail = 0;
     const failed = [];
     for (const c of checks) {
         try {
-            const r = await c.fn();
-            if (r.ok) { pass++; console.log('  ✓ ' + c.name); }
-            else      { fail++; failed.push({ name: c.name, ...r }); console.log('  ✗ ' + c.name + ' — ' + JSON.stringify(r.detail)); }
+            process.stdout.write('  … ' + c.name + '\n');
+            const r = await Promise.race([
+                c.fn(),
+                new Promise((_, rej) => setTimeout(() => rej(new Error('TIMEOUT 8s')), 8000)),
+            ]);
+            if (r.ok) { pass++; process.stdout.write('  ✓ ' + c.name + '\n'); }
+            else      { fail++; failed.push({ name: c.name, ...r }); process.stdout.write('  ✗ ' + c.name + ' — ' + JSON.stringify(r.detail) + '\n'); }
         } catch (e) {
             fail++; failed.push({ name: c.name, error: e.stack ?? String(e) });
             console.log('  ✗ ' + c.name + ' — THROW ' + e.message);

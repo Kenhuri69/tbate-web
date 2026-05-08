@@ -81,8 +81,9 @@ async function run() {
                 _phaser = v;
                 if (v && v.Game && !v.Game[PATCH_FLAG]) {
                     const Orig = v.Game;
-                    function Patched(...args) {
-                        const inst = new Orig(...args);
+                    function Patched(config, ...rest) {
+                        if (config && typeof config === 'object') config.type = 1; // CANVAS (sandbox WebGL est instable)
+                        const inst = new Orig(config, ...rest);
                         window.__games__.push(inst);
                         return inst;
                     }

@@ -120,6 +120,13 @@ class GameScene extends Phaser.Scene {
             }
         });
 
+        // 14b. Game over
+        this.events.once('player:died', () => {
+            this.physics.pause();
+            this.player.sprite.setVelocity(0, 0);
+            this.scene.launch('GameOverScene', { sourceKey: this.scene.key });
+        });
+
         // 15. Caméra
         this._setupCamera();
     }
