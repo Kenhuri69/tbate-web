@@ -110,6 +110,7 @@ class HUD {
     }
 
     _refreshMana() {
+        if (!this._barEssence?.scene) return;  // HUD zombie après restart
         const core    = playerState.coreData;
         const next    = playerState.nextCore;
         const maxLvl  = !next;
@@ -137,7 +138,10 @@ class HUD {
     }
 
     _refreshStats() {
-        if (!this.stats) return;
+        // HUD zombie : après scene restart, l'ancienne instance reçoit encore
+        // les events car ses listeners sont sur scene.events (non auto-cleanés
+        // par Phaser au shutdown). Ses sprites sont détruits → setSize crash.
+        if (!this.stats || !this._barHP?.scene) return;
         const hp    = this.stats.currentHP;
         const maxHP = this.stats.maxHP;
         const ratio = maxHP > 0 ? hp / maxHP : 0;

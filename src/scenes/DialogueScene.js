@@ -82,6 +82,12 @@ class DialogueScene extends Phaser.Scene {
 
     _typeText(text) {
         if (this._typeEvent) { this._typeEvent.remove(); this._typeEvent = null; }
+        // Une chaîne vide ne doit pas armer un timer (repeat: -1 = boucle infinie).
+        if (!text || text.length === 0) {
+            this.isTyping = false;
+            this._txtContinue.setVisible(true);
+            return;
+        }
         this.isTyping = true;
         let i = 0;
         this._typeEvent = this.time.addEvent({
